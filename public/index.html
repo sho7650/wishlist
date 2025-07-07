@@ -1,37 +1,82 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>願い事投稿サイト</title>
-  <link rel="stylesheet" href="/styles.css">
-</head>
-<body>
-  <div id="app">
-    <!-- 投稿フォーム -->
-    <div id="form-container">
-      <h1 id="form-title">願い事を投稿</h1>
-      <form id="wish-form">
-        <div class="form-group">
-          <label for="name">名前（任意）</label>
-          <input type="text" id="name" name="name" placeholder="匿名">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>願い事投稿サイト</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script>
+      // スクリプトの読み込みエラーをキャッチ
+      window.addEventListener(
+        "error",
+        function (e) {
+          if (e.target.tagName === "SCRIPT") {
+            console.error("Script loading error:", e);
+            alert(
+              "JavaScriptの読み込みでエラーが発生しました。ページを再読み込みしてください。"
+            );
+          }
+        },
+        true
+      );
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <!-- 閲覧画面 -->
+      <div id="viewer-container" class="container">
+        <header>
+          <h1>みんなの願い事</h1>
+          <button id="new-wish-button" class="primary-button">
+            願い事を投稿する
+          </button>
+        </header>
+
+        <div id="wishes-list" class="wishes-grid"></div>
+
+        <!-- loading-indicator に style="display:none" を追加 -->
+        <div
+          id="loading-indicator"
+          class="loading-indicator hidden"
+          style="display: none"
+        >
+          <div class="spinner"></div>
+          <p>読み込み中...</p>
         </div>
-        <div class="form-group">
-          <label for="wish">願い事（必須）</label>
-          <textarea id="wish" name="wish" required placeholder="あなたの願い事を書いてください"></textarea>
-        </div>
-        <button type="submit" id="submit-button">投稿する</button>
-      </form>
-      <div id="status-message"></div>
+      </div>
+
+      <!-- 投稿/編集画面 (最初は非表示) -->
+      <div id="form-container" class="container hidden">
+        <header>
+          <h1 id="form-title">願い事を投稿</h1>
+          <button id="back-button" class="secondary-button">
+            閲覧画面に戻る
+          </button>
+        </header>
+
+        <form id="wish-form">
+          <div class="form-group">
+            <label for="name">名前（任意）</label>
+            <input type="text" id="name" name="name" placeholder="匿名" />
+          </div>
+          <div class="form-group">
+            <label for="wish">願い事（必須）</label>
+            <textarea
+              id="wish"
+              name="wish"
+              required
+              placeholder="あなたの願い事を書いてください"
+            ></textarea>
+          </div>
+          <button type="submit" id="submit-button" class="primary-button">
+            投稿する
+          </button>
+        </form>
+        <div id="status-message"></div>
+      </div>
     </div>
 
-    <!-- 願い事一覧 -->
-    <div id="wishes-container">
-      <h2>みんなの願い事</h2>
-      <div id="wishes-list"></div>
-    </div>
-  </div>
-
-  <script src="/app.js"></script>
-</body>
+    <!-- JavaScriptを遅延読み込みせずに即時実行する -->
+    <script src="/app.js?v=1"></script>
+  </body>
 </html>

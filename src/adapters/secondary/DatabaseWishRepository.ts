@@ -81,10 +81,10 @@ export class DatabaseWishRepository implements WishRepository {
     });
   }
 
-  async findLatest(limit: number): Promise<Wish[]> {
+  async findLatest(limit: number, offset: number = 0): Promise<Wish[]> {
     const result = await this.db.query(
-      "SELECT * FROM wishes ORDER BY created_at DESC LIMIT $1",
-      [limit]
+      "SELECT * FROM wishes ORDER BY created_at DESC LIMIT $1 OFFSET $2",
+      [limit, offset]
     );
 
     return result.rows.map(
