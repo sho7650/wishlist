@@ -179,6 +179,11 @@ export class SQLiteConnection implements DatabaseConnection {
       // ON CONFLICT以降の部分を削除
       sqliteQuery = sqliteQuery.replace(/\s+ON CONFLICT.*DO UPDATE.*$/is, "");
     }
+    // 4. OFFSETの処理（SQLiteでも同じ構文だが、念のため）
+    if (sqliteQuery.includes("OFFSET")) {
+      // OFFSET構文をそのまま使用（SQLiteでもサポートされている）
+      // 特に変換は不要
+    }
 
     return sqliteQuery;
   }
