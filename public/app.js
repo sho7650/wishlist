@@ -17,10 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // DOM要素の存在確認
   console.log("DOM Elements Check:");
-  console.log("viewerContainer:", viewerContainer);
-  console.log("formContainer:", formContainer);
-  console.log("newWishButton:", newWishButton);
-  console.log("backButton:", backButton);
+  console.log("loadingIndicator:", loadingIndicator);
 
   // 状態管理
   let isEditMode = false;
@@ -94,15 +91,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // 願い事の読み込み
   async function loadWishes(offset = 0, append = false) {
     console.log(`Loading wishes: offset=${offset}, append=${append}`);
-    if (isLoading || (!append && !hasMoreWishes)) {
-      console.log("Skipping load: already loading or no more wishes");
+    if (isLoading) {
+      console.log("Already loading, skipping this request");
       return;
     }
 
-    isLoading = true;
-    loadingIndicator.classList.remove("hidden");
+    if (!append && !hasMoreWishes) {
+      console.log("No more wishes and not appending, skipping");
+      return;
+    }
 
     try {
+      // ローディング状態を設定
+      isLoading = true;
+      if (loadingIndicator) {
+        loadingIndicator.classList.remove("hidden");
+      }
+
       console.log(
         `Fetching wishes from API: /api/wishes?limit=20&offset=${offset}`
       );
@@ -117,33 +122,36 @@ document.addEventListener("DOMContentLoaded", () => {
       if (data.wishes.length === 0) {
         console.log("No more wishes to load");
         hasMoreWishes = false;
-        loadingIndicator.classList.add("hidden");
-        return;
+      } else {
+        // 願い事カードを追加
+        data.wishes.forEach((wish) => {
+          const card = document.createElement("div");
+          card.className = "wish-card";
+
+          // ランダムな色を生成
+          const hue = Math.floor(Math.random() * 360);
+          card.style.backgroundColor = `hsl(${hue}, 70%, 90%)`;
+
+          card.innerHTML = `
+            <div class="wish-content">${escapeHTML(wish.wish)}</div>
+            <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
+          `;
+
+          wishesList.appendChild(card);
+        });
+
+        currentOffset += data.wishes.length;
+        console.log(`New offset: ${currentOffset}`);
       }
-
-      data.wishes.forEach((wish) => {
-        const card = document.createElement("div");
-        card.className = "wish-card";
-
-        // ランダムな色を生成
-        const hue = Math.floor(Math.random() * 360);
-        card.style.backgroundColor = `hsl(${hue}, 70%, 90%)`;
-
-        card.innerHTML = `
-          <div class="wish-content">${escapeHTML(wish.wish)}</div>
-          <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
-        `;
-
-        wishesList.appendChild(card);
-      });
-
-      currentOffset += data.wishes.length;
-      console.log(`New offset: ${currentOffset}`);
     } catch (error) {
       console.error("Error loading wishes:", error);
     } finally {
+      // ローディング状態をリセット
       isLoading = false;
-      loadingIndicator.classList.add("hidden");
+      if (loadingIndicator) {
+        console.log("Hiding loading indicator");
+        loadingIndicator.classList.add("hidden");
+      }
     }
   }
 
@@ -216,8 +224,8 @@ document.addEventListener("DOMContentLoaded", () => {
           setTimeout(() => {
             currentOffset = 0;
             hasMoreWishes = true;
-            loadWishes();
             showViewerScreen();
+            loadWishes(0, false);
           }, 1000);
         } else {
           console.error("API returned error:", data.error);
@@ -262,6 +270,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 初期化
   console.log("Initializing app");
+
+  // ローディングインジケーターを最初に非表示にする
+  if (loadingIndicator) {
+    loadingIndicator.classList.add("hidden");
+  }
+
+  // 画面表示と初期データ読み込み
   showViewerScreen();
-  loadWishes();
+  loadWishes(0, false);
 });
