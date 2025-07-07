@@ -1,8 +1,8 @@
-import { Request, Response } from 'express';
-import { CreateWishUseCase } from '../../application/usecases/CreateWishUseCase';
-import { UpdateWishUseCase } from '../../application/usecases/UpdateWishUseCase';
-import { GetWishBySessionUseCase } from '../../application/usecases/GetWishBySessionUseCase';
-import { GetLatestWishesUseCase } from '../../application/usecases/GetLatestWishesUseCase';
+import { Request, Response } from "express";
+import { CreateWishUseCase } from "../../application/usecases/CreateWishUseCase";
+import { UpdateWishUseCase } from "../../application/usecases/UpdateWishUseCase";
+import { GetWishBySessionUseCase } from "../../application/usecases/GetWishBySessionUseCase";
+import { GetLatestWishesUseCase } from "../../application/usecases/GetLatestWishesUseCase";
 
 export class WishController {
   constructor(
@@ -15,26 +15,31 @@ export class WishController {
   async createWish(req: Request, res: Response) {
     try {
       const { name, wish } = req.body;
-      
+
       if (!wish) {
-        return res.status(400).json({ error: '願い事は必須です' });
+        return res.status(400).json({ error: "願い事は必須です" });
       }
 
       const sessionId = req.cookies.sessionId;
-      
+
       // 投稿を作成
-      const result = await this.createWishUseCase.execute(name, wish, sessionId);
-      
+      const result = await this.createWishUseCase.execute(
+        name,
+        wish,
+        sessionId
+      );
+
       // Cookieを設定
-      res.cookie('sessionId', result.sessionId, {
+      res.cookie("sessionId", result.sessionId, {
         httpOnly: true,
         maxAge: 365 * 24 * 60 * 60 * 1000, // 1年
-        sameSite: 'strict'
+        sameSite: "strict",
       });
-      
+
       res.status(201).json({ wish: result.wish });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });
     }
   }
@@ -43,19 +48,20 @@ export class WishController {
     try {
       const { name, wish } = req.body;
       const sessionId = req.cookies.sessionId;
-      
+
       if (!sessionId) {
-        return res.status(401).json({ error: '編集権限がありません' });
+        return res.status(401).json({ error: "編集権限がありません" });
       }
-      
+
       if (!wish) {
-        return res.status(400).json({ error: '願い事は必須です' });
+        return res.status(400).json({ error: "願い事は必須です" });
       }
-      
+
       await this.updateWishUseCase.execute(sessionId, name, wish);
-      res.status(200).json({ message: '更新しました' });
+      res.status(200).json({ message: "更新しました" });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });
     }
   }
@@ -63,25 +69,30 @@ export class WishController {
   async getCurrentWish(req: Request, res: Response) {
     try {
       const sessionId = req.cookies.sessionId;
-      
+
       if (!sessionId) {
         return res.status(200).json({ wish: null });
       }
-      
+
       const wish = await this.getWishBySessionUseCase.execute(sessionId);
       res.status(200).json({ wish });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });
     }
   }
 
   async getLatestWishes(req: Request, res: Response) {
     try {
-      const wishes = await this.getLatestWishesUseCase.execute();
+      const limit = parseInt(req.query.limit as string) || 20;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const wishes = await this.getLatestWishesUseCase.execute(limit, offset);
       res.status(200).json({ wishes });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '不明なエラーが発生しました';
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });
     }
   }
