@@ -9,22 +9,31 @@ export class SQLiteConnection implements DatabaseConnection {
   private dbPath: string;
 
   constructor() {
-    const dbDir = process.env.SQLITE_DB_DIR || "./data";
-    this.dbPath = path.resolve(
-      process.env.SQLITE_DB_PATH || path.join(dbDir, "wishlist.sqlite")
-    );
+    const dbPathConfig = process.env.SQLITE_DB_PATH;
 
-    // データベースディレクトリの作成
-    if (!fs.existsSync(path.dirname(this.dbPath))) {
-      fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
+    // データベースパスの設定
+    // 環境変数 SQLITE_DB_PATH が設定されていない場合はデフォルトのパスを使用
+    // また、:memory: を指定された場合はインメモリデータベースを使用
+    if (dbPathConfig === ":memory:") {
+      this.dbPath = ":memory:";
+      console.log("Using SQLite in-memory database");
+    } else {
+      const dbDir = process.env.SQLITE_DB_DIR || "./data";
+      this.dbPath = path.resolve(
+        dbPathConfig || path.join(dbDir, "wishlist.sqlite")
+      );
+
+      // データベースディレクトリの作成
+      if (!fs.existsSync(path.dirname(this.dbPath))) {
+        fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
+      }
+      console.log(`SQLite database initialized at ${this.dbPath}`);
     }
 
     // SQLite3はコールバックベースのAPIを使用
     this.db = new sqlite3.Database(this.dbPath, (err) => {
       if (err) {
         console.error("Could not connect to database", err);
-      } else {
-        console.log(`SQLite database initialized at ${this.dbPath}`);
       }
     });
   }

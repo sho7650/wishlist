@@ -4,41 +4,43 @@ A modern, digital re-imagination of the traditional Japanese Tanabata wish-makin
 
 The project is built with a clean, scalable architecture (Hexagonal Architecture and DDD) and is ready for deployment on Heroku.
 
-  
-*(Note: Replace this with an actual screenshot of your application)*
+_(Note: Replace this with an actual screenshot of your application)_
 
 ## Features
 
--   **Post a Wish**: Users can anonymously or with a name post their "negaigoto" (wish).
--   **Edit Your Wish**: A session cookie allows users to edit the wish they've posted. A user can only have one wish per session.
--   **Dynamic Wish Wall**: View the latest wishes from users around the world, displayed in beautifully colored, random cards.
--   **Infinite Scroll**: Seamlessly load and browse through past wishes by simply scrolling down the page.
--   **Separated Views**: A dedicated read-only page for browsing wishes and a separate page for posting or editing a wish.
--   **Responsive Design**: Enjoy a seamless experience on both desktop and mobile devices.
+- **Post a Wish**: Users can anonymously or with a name post their "negaigoto" (wish).
+- **Edit Your Wish**: A session cookie allows users to edit the wish they've posted. A user can only have one wish per session.
+- **Dynamic Wish Wall**: View the latest wishes from users around the world, displayed in beautifully colored, random cards.
+- **Infinite Scroll**: Seamlessly load and browse through past wishes by simply scrolling down the page.
+- **Separated Views**: A dedicated read-only page for browsing wishes and a separate page for posting or editing a wish.
+- **Responsive Design**: Enjoy a seamless experience on both desktop and mobile devices.
 
 ## Tech Stack & Architecture
 
 This project emphasizes a clean, decoupled, and scalable codebase through its architecture.
 
--   **Architecture**:
-    -   **Hexagonal Architecture (Ports and Adapters)**: Decouples the core application logic from external concerns like the database, web server, and other services.
-    -   **Domain-Driven Design (DDD)**: The business logic is modeled around a rich domain layer, focusing on the core concepts of "Wishes" and their rules.
+- **Architecture**:
 
--   **Backend**:
-    -   **Language**: TypeScript
-    -   **Framework**: Node.js with Express.js
-    -   **Database**:
-        -   **PostgreSQL**: For production environments (Heroku compatible).
-        -   **SQLite**: For easy local development and testing.
-    -   **Testing**: Jest, Supertest
+  - **Hexagonal Architecture (Ports and Adapters)**: Decouples the core application logic from external concerns like the database, web server, and other services.
+  - **Domain-Driven Design (DDD)**: The business logic is modeled around a rich domain layer, focusing on the core concepts of "Wishes" and their rules.
 
--   **Frontend**:
-    -   **Structure**: Single Page Application (SPA)
-    -   **Technologies**: HTML5, CSS3, vanilla JavaScript
+- **Backend**:
 
--   **Deployment**:
-    -   **Platform**: Heroku
-    -   **Process**: Includes a `Procfile` and is configured for seamless deployment with the Heroku Postgres add-on.
+  - **Language**: TypeScript
+  - **Framework**: Node.js with Express.js
+  - **Database**:
+    - **PostgreSQL**: For production environments (Heroku compatible).
+    - **SQLite**: For easy local development and testing.
+  - **Testing**: Jest, Supertest
+
+- **Frontend**:
+
+  - **Structure**: Single Page Application (SPA)
+  - **Technologies**: HTML5, CSS3, vanilla JavaScript
+
+- **Deployment**:
+  - **Platform**: Heroku
+  - **Process**: Includes a `Procfile` and is configured for seamless deployment with the Heroku Postgres add-on.
 
 ## Project Structure
 
@@ -55,7 +57,6 @@ The codebase is organized following the principles of Hexagonal Architecture.
 │   └── index.ts        # Application entry point
 ├── public/             # Frontend static files (HTML, CSS, JS)
 ├── tests/              # Unit, Integration, and E2E tests
-├── .env.example        # Environment variable template
 ├── jest.config.js      # Jest testing configuration
 └── package.json
 ```
@@ -66,31 +67,36 @@ Follow these instructions to get the project up and running on your local machin
 
 ### Prerequisites
 
--   Node.js (v18.x or later recommended)
--   npm (v9.x or later recommended)
--   Git
+- Node.js (v18.x or later recommended)
+- npm (v9.x or later recommended)
+- Git
 
 ### Installation
 
 1.  **Clone the repository:**
+
     ```bash
-    git clone https://github.com/your-username/your-repository-name.git
-    cd your-repository-name
+    git clone https://github.com/sho7650/wishlist.git
+    cd wishlist
     ```
 
 2.  **Install dependencies:**
+
     ```bash
     npm install
     ```
 
 3.  **Set up environment variables:**
     Create a `.env` file in the root of the project by copying the example file.
+
     ```bash
-    cp .env.example .env
+    touch .env
     ```
+
     Open the `.env` file and configure it for your desired database.
 
     **For SQLite (default for development):**
+
     ```env
     # .env
     DB_TYPE=sqlite
@@ -98,6 +104,7 @@ Follow these instructions to get the project up and running on your local machin
     ```
 
     **For PostgreSQL (requires a running instance):**
+
     ```env
     # .env
     DB_TYPE=postgres
@@ -110,60 +117,69 @@ Follow these instructions to get the project up and running on your local machin
 
 ### Running the Application
 
--   **Run the development server (with SQLite):**
-    The server will automatically restart when you make changes to the code.
-    ```bash
-    npm run dev
-    ```
+- **Run the development server (with SQLite):**
+  The server will automatically restart when you make changes to the code.
 
--   **Run with PostgreSQL:**
-    ```bash
-    npm run dev:pg
-    ```
+  ```bash
+  npm run dev
+  ```
+
+- **Run with PostgreSQL:**
+  ```bash
+  npm run dev:pg
+  ```
 
 The application will be available at `http://localhost:3000`.
 
 ### Running Tests
 
--   **Run all tests:**
-    ```bash
-    npm test
-    ```
+- **Run all tests:**
 
--   **Run tests in watch mode:**
-    ```bash
-    npm run test:watch
-    ```
+  ```bash
+  npm test
+  ```
 
--   **Generate a test coverage report:**
-    ```bash
-    npm run test:coverage
-    ```
+- **Run tests in watch mode:**
+
+  ```bash
+  npm run test:watch
+  ```
+
+- **Generate a test coverage report:**
+  ```bash
+  npm run test:coverage
+  ```
 
 ## Deployment to Heroku
 
 This application is configured for easy deployment to Heroku.
 
 1.  **Login to the Heroku CLI:**
+
     ```bash
     heroku login
     ```
 
 2.  **Create a Heroku application:**
+
     ```bash
     heroku create your-app-name
     ```
 
 3.  **Add the Heroku Postgres addon:**
+
     ```bash
-    heroku addons:create heroku-postgresql:hobby-dev
+    heroku addons:create heroku-postgresql:essential-0 -a your-app-name
     ```
+
     This will automatically set the `DATABASE_URL` environment variable.
 
 4.  **Push your code to Heroku:**
+
     ```bash
     git push heroku main
     ```
+
     The `heroku-postbuild` script in `package.json` will automatically build the TypeScript code.
 
 5.  **Open your application:**
@@ -189,5 +205,4 @@ Orihime was heartbroken. Moved by his daughter's tears, the Sky King allowed the
 
 On Tanabata, people celebrate by writing their wishes on small, colorful strips of paper called **tanzaku** (短冊). These wishes, often written in the form of poetry, are then hung on bamboo branches, creating beautiful, wish-laden trees. It is believed that the wishes will be carried to the heavens, and with the lovers' reunion, they might just come true.
 
-This **Tanabata Wish Board** is a digital tribute to that tradition, creating a space for people everywhere to share their *tanzaku* and celebrate the timeless themes of love, hope, and perseverance.
-
+This **Tanabata Wish Board** is a digital tribute to that tradition, creating a space for people everywhere to share their _tanzaku_ and celebrate the timeless themes of love, hope, and perseverance.
