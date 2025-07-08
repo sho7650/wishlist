@@ -1,4 +1,5 @@
 // src/index.ts
+import "newrelic";
 // import "dotenv/config"; // dotenvを一番最初にインポート
 import { DatabaseFactory } from "./infrastructure/db/DatabaseFactory";
 import { DatabaseWishRepository } from "./adapters/secondary/DatabaseWishRepository";
