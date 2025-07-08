@@ -1,6 +1,6 @@
-[![CircleCI](https://dl.circleci.com/status-badge/img/gh/sho7650/wishlist/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/sho7650/wishlist/tree/main) [![Known Vulnerabilities](https://snyk.io/test/github/sho7650/wishlist/badge.svg)](https://snyk.io/test/github/sho7650/wishlist)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/sho7650/wishlist/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/sho7650/wishlist/tree/main)
 
-# Tanabata Wish Board 
+# Tanabata Wish Board
 
 A modern, digital re-imagination of the traditional Japanese Tanabata wish-making custom. This web application allows users from anywhere to post their wishes on a virtual bamboo tree, sharing their hopes and dreams in a beautiful, interactive display.
 
@@ -29,7 +29,10 @@ This project emphasizes a clean, decoupled, and scalable codebase through its ar
 - **Backend**:
 
   - **Language**: TypeScript
-  - **Framework**: Node.js with Express.js
+  - **Framework**:
+    - **Express.js**: Default web framework for simplicity and ecosystem maturity
+    - **Koa.js**: Alternative framework option for modern async/await patterns and lighter middleware
+    - **Framework Selection**: Configurable via environment variables or npm scripts
   - **Database**:
     - **PostgreSQL**: For production environments (Heroku compatible).
     - **SQLite**: For easy local development and testing.
@@ -119,19 +122,39 @@ Follow these instructions to get the project up and running on your local machin
 
 ### Running the Application
 
-- **Run the development server (with SQLite):**
+- **Run the development server with Express (default):**
   The server will automatically restart when you make changes to the code.
 
   ```bash
   npm run dev
   ```
 
-- **Run with PostgreSQL:**
+- **Run with Koa framework:**
+
+  ```bash
+  npm run dev:koa
+  ```
+
+- **Run with PostgreSQL and Express:**
+
   ```bash
   npm run dev:pg
   ```
 
+- **Run with PostgreSQL and Koa:**
+  ```bash
+  npm run dev:pg:koa
+  ```
+
 The application will be available at `http://localhost:3000`.
+
+**Framework Selection:**
+You can also set the framework via environment variable:
+
+```env
+# .env
+WEB_FRAMEWORK=express  # or 'koa'
+```
 
 ### Running Tests
 

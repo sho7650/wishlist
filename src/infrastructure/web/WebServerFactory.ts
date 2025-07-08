@@ -18,7 +18,8 @@ export class WebServerFactory {
     wishRepository: WishRepository,
     sessionService: SessionService
   ): WebServer {
-    const framework = process.env.WEB_FRAMEWORK || "express";
+    const framework = (process.env.WEB_FRAMEWORK ||
+      "express") as keyof typeof serverMap;
 
     // ユースケースは両方のフレームワークで共通
     const createWishUseCase = new CreateWishUseCase(
@@ -32,24 +33,33 @@ export class WebServerFactory {
     const getWishBySessionUseCase = new GetWishBySessionUseCase(wishRepository);
     const getLatestWishesUseCase = new GetLatestWishesUseCase(wishRepository);
 
-    if (framework.toLowerCase() === "koa") {
-      console.log("Initializing Koa server...");
-      const koaWishAdapter = new KoaWishAdapter(
-        createWishUseCase,
-        updateWishUseCase,
-        getWishBySessionUseCase,
-        getLatestWishesUseCase
-      );
-      return new KoaServer(koaWishAdapter);
-    } else {
-      console.log("Initializing Express server...");
-      const wishController = new WishController(
-        createWishUseCase,
-        updateWishUseCase,
-        getWishBySessionUseCase,
-        getLatestWishesUseCase
-      );
-      return new ExpressServer(wishController);
+    const serverMap = {
+      koa: () => {
+        console.log("Initializing Koa server...");
+        const koaWishAdapter = new KoaWishAdapter(
+          createWishUseCase,
+          updateWishUseCase,
+          getWishBySessionUseCase,
+          getLatestWishesUseCase
+        );
+        return new KoaServer(koaWishAdapter);
+      },
+      express: () => {
+        console.log("Initializing Express server...");
+        const wishController = new WishController(
+          createWishUseCase,
+          updateWishUseCase,
+          getWishBySessionUseCase,
+          getLatestWishesUseCase
+        );
+        return new ExpressServer(wishController);
+      },
+    };
+
+    const createServer = serverMap[framework];
+    if (!createServer) {
+      throw new Error(`Unsupported framework: ${framework}`);
     }
+    return createServer();
   }
 }
