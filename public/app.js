@@ -183,8 +183,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const name = nameInput.value.trim();
     const wish = wishInput.value.trim();
 
-    if (!wish) {
-      showStatus("願い事は必須です", "error");
+    if (name.length > 64) {
+      showStatus("名前は64文字以内で入力してください。", "error");
+      return;
+    }
+
+    if (wish.length === 0) {
+      showStatus("願い事は必須です。", "error");
+      return;
+    }
+
+    if (wish.length > 240) {
+      showStatus("願い事は240文字以内で入力してください。", "error");
       return;
     }
 
