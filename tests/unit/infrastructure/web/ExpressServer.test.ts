@@ -1,46 +1,37 @@
 import { ExpressServer } from "../../../../src/infrastructure/web/ExpressServer";
 import { WishController } from "../../../../src/adapters/primary/WishController";
-// expressのインポートは型のヒントのために残しておきます
-import express from "express";
 
-// --- ここからが修正のポイント ---
-
-// 1. テスト全体で共有するモックアプリのインスタンスを作成します。
+// --- モックの設定 ---
+// 共有のモックインスタンスを定義
 const mockApp = {
   use: jest.fn(),
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
   listen: jest.fn((port, callback) => {
-    // listenのコールバックを呼び出すようにして、より現実的な動作を模倣します。
     if (callback) callback();
-    return { close: jest.fn() }; // listenはサーバーインスタンスを返すため、それもモックします。
+    return { close: jest.fn() };
   }),
 };
 
-// 2. expressモジュールをモックします。
-//    express()が呼ばれたら、常に上で定義した mockApp を返すようにします。
+// express()が呼ばれたら、常にmockAppを返すように設定
 jest.mock("express", () => {
   const actualExpress = jest.fn(() => mockApp);
-  // express.json() や express.static() のような静的メソッドもモックします。
   (actualExpress as any).json = jest.fn(() => "json middleware");
   (actualExpress as any).static = jest.fn(() => "static middleware");
   return actualExpress;
 });
 
-// --- ここまでが修正のポイント ---
+// 依存する他のモジュールもモック化
+jest.mock("cookie-parser", () => jest.fn(() => "cookieParser middleware"));
+jest.mock("helmet", () => jest.fn(() => "helmet middleware"));
 
-// コントローラーをモック - WishControllerクラスを継承したモックを作成
+// Controllerのモック
 class MockWishController extends WishController {
   constructor() {
-    super(
-      { execute: jest.fn() } as any,
-      { execute: jest.fn() } as any,
-      { execute: jest.fn() } as any,
-      { execute: jest.fn() } as any
-    );
-
-    // メソッドをスパイでオーバーライド
+    // superにはダミーのモックを渡す
+    super({} as any, {} as any, {} as any, {} as any);
+    // メソッドをjestのモック関数で上書き
     this.createWish = jest.fn();
     this.updateWish = jest.fn();
     this.getCurrentWish = jest.fn();
@@ -48,53 +39,51 @@ class MockWishController extends WishController {
   }
 }
 
-describe("Server", () => {
+// --- テストスイート ---
+describe("ExpressServer", () => {
   let server: ExpressServer;
   let mockWishController: WishController;
 
   beforeEach(() => {
-    // 3. 各テストの前に、すべてのモック（mockAppのメソッドも含む）をクリアします。
     jest.clearAllMocks();
-
     mockWishController = new MockWishController();
-    // 4. Serverをインスタンス化します。これにより内部で mockApp が使用されます。
     server = new ExpressServer(mockWishController);
   });
 
-  it("should setup middleware correctly", () => {
-    // 5. テストケース内では新しいアプリを作らず、共有の mockApp を検証します。
+  it("should setup all required middleware", () => {
+    // 期待されるミドルウェアがすべてuseで登録されているか検証
+    expect(mockApp.use).toHaveBeenCalledWith("helmet middleware");
     expect(mockApp.use).toHaveBeenCalledWith("json middleware");
     expect(mockApp.use).toHaveBeenCalledWith("static middleware");
-    // cookieParser の分も合わせて use が呼ばれていることを確認
-    // 修正: helmetとrate-limitも追加されている場合、呼び出し回数は増えます。
-    // 今は具体的な回数よりも、呼ばれた内容を重視します。
-    expect(mockApp.use).toHaveBeenCalledWith(expect.any(Function)); // cookieParser
+    expect(mockApp.use).toHaveBeenCalledWith("cookieParser middleware");
   });
 
-  it("should setup routes correctly", () => {
+  it("should setup all required routes", () => {
+    // 期待されるルートがすべて正しいメソッドとハンドラで登録されているか検証
     expect(mockApp.post).toHaveBeenCalledWith(
       "/api/wishes",
-      expect.any(Function)
+      mockWishController.createWish
     );
     expect(mockApp.put).toHaveBeenCalledWith(
       "/api/wishes",
-      expect.any(Function)
+      mockWishController.updateWish
     );
     expect(mockApp.get).toHaveBeenCalledWith(
       "/api/wishes/current",
-      expect.any(Function)
+      mockWishController.getCurrentWish
     );
     expect(mockApp.get).toHaveBeenCalledWith(
       "/api/wishes",
-      expect.any(Function)
+      mockWishController.getLatestWishes
     );
+    // SPAフォールバック用のルート
     expect(mockApp.get).toHaveBeenCalledWith(/.*/, expect.any(Function));
   });
 
-  it("should start server on specified port", () => {
+  it("should start the server on the specified port", () => {
     const port = 3000;
     server.start(port);
-
+    // listenが正しいポートで呼ばれたか検証
     expect(mockApp.listen).toHaveBeenCalledWith(port, expect.any(Function));
   });
 });

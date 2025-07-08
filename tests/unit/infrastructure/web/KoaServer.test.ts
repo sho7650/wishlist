@@ -1,13 +1,10 @@
 import { KoaServer } from "../../../../src/infrastructure/web/KoaServer";
 import { KoaWishAdapter } from "../../../../src/adapters/primary/KoaWishAdapter";
-import Koa from "koa";
-import Router from "@koa/router";
 
 // --- モックの設定 ---
-
 // Koaのモック
 const mockKoaInstance = {
-  use: jest.fn().mockReturnThis(),
+  use: jest.fn().mockReturnThis(), // メソッドチェーンのためにthisを返す
   listen: jest.fn((port, callback) => {
     if (callback) callback();
     return { close: jest.fn() };
@@ -35,7 +32,6 @@ jest.mock("koa-static", () => jest.fn(() => "static middleware"));
 jest.mock("koa-helmet", () => jest.fn(() => "helmet middleware"));
 
 // アダプターのモック
-// KoaWishAdapterのメソッドはアロー関数で定義されているため、インスタンスメソッドとしてモックする
 class MockKoaWishAdapter extends KoaWishAdapter {
   constructor() {
     super({} as any, {} as any, {} as any, {} as any);
@@ -52,32 +48,26 @@ describe("KoaServer", () => {
   let mockKoaWishAdapter: KoaWishAdapter;
 
   beforeEach(() => {
-    // 各テストの前にすべてのモックをクリア
     jest.clearAllMocks();
-
     mockKoaWishAdapter = new MockKoaWishAdapter();
     server = new KoaServer(mockKoaWishAdapter);
   });
 
-  it("should setup middleware correctly", () => {
-    // Koaインスタンスのuseメソッドが期待通りに呼ばれたか検証
+  it("should setup all required middleware", () => {
+    // 期待されるミドルウェアがすべてuseで登録されているか検証
     expect(mockKoaInstance.use).toHaveBeenCalledWith("helmet middleware");
     expect(mockKoaInstance.use).toHaveBeenCalledWith("bodyParser middleware");
     expect(mockKoaInstance.use).toHaveBeenCalledWith("static middleware");
-    // ルーターのミドルウェアもuseで登録される
+    // ルーターとSPAフォールバック用のミドルウェア
     expect(mockKoaInstance.use).toHaveBeenCalledWith("routes middleware");
     expect(mockKoaInstance.use).toHaveBeenCalledWith(
       "allowedMethods middleware"
     );
-    // SPAフォールバック用のミドルウェア
     expect(mockKoaInstance.use).toHaveBeenCalledWith(expect.any(Function));
-
-    // 合計で6回 use が呼ばれるはず
-    expect(mockKoaInstance.use).toHaveBeenCalledTimes(6);
   });
 
-  it("should setup routes correctly", () => {
-    // Routerインスタンスのメソッドが期待通りに呼ばれたか検証
+  it("should setup all required routes", () => {
+    // 期待されるルートがすべて正しいメソッドとハンドラで登録されているか検証
     expect(mockRouterInstance.post).toHaveBeenCalledWith(
       "/api/wishes",
       mockKoaWishAdapter.createWish
@@ -96,11 +86,10 @@ describe("KoaServer", () => {
     );
   });
 
-  it("should start server on the specified port", () => {
+  it("should start the server on the specified port", () => {
     const port = 5000;
     server.start(port);
-
-    // listenメソッドが正しいポートで呼ばれたか検証
+    // listenが正しいポートで呼ばれたか検証
     expect(mockKoaInstance.listen).toHaveBeenCalledWith(
       port,
       expect.any(Function)

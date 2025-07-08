@@ -1,14 +1,14 @@
-import { WebServerFactory } from '../../../../src/infrastructure/web/WebServerFactory';
-import { ExpressServer } from '../../../../src/infrastructure/web/ExpressServer';
-import { KoaServer } from '../../../../src/infrastructure/web/KoaServer';
+import { WebServerFactory } from "../../../../src/infrastructure/web/WebServerFactory";
+import { ExpressServer } from "../../../../src/infrastructure/web/ExpressServer";
+import { KoaServer } from "../../../../src/infrastructure/web/KoaServer";
 
 // 実際の依存関係をモック
-jest.mock('../../../../src/infrastructure/web/ExpressServer');
-jest.mock('../../../../src/infrastructure/web/KoaServer');
-jest.mock('../../../../src/adapters/primary/WishController');
-jest.mock('../../../../src/adapters/primary/KoaWishAdapter');
+jest.mock("../../../../src/infrastructure/web/ExpressServer");
+jest.mock("../../../../src/infrastructure/web/KoaServer");
+jest.mock("../../../../src/adapters/primary/WishController");
+jest.mock("../../../../src/adapters/primary/KoaWishAdapter");
 
-describe('WebServerFactory', () => {
+describe("WebServerFactory", () => {
   const mockWishRepository = {} as any;
   const mockSessionService = {} as any;
   const originalEnv = process.env;
@@ -25,23 +25,30 @@ describe('WebServerFactory', () => {
   });
 
   it('should create an ExpressServer when WEB_FRAMEWORK is "express"', () => {
-    process.env.WEB_FRAMEWORK = 'express';
+    process.env.WEB_FRAMEWORK = "express";
     WebServerFactory.createServer(mockWishRepository, mockSessionService);
     expect(ExpressServer).toHaveBeenCalledTimes(1);
     expect(KoaServer).not.toHaveBeenCalled();
   });
 
   it('should create a KoaServer when WEB_FRAMEWORK is "koa"', () => {
-    process.env.WEB_FRAMEWORK = 'koa';
+    process.env.WEB_FRAMEWORK = "koa";
     WebServerFactory.createServer(mockWishRepository, mockSessionService);
     expect(KoaServer).toHaveBeenCalledTimes(1);
     expect(ExpressServer).not.toHaveBeenCalled();
   });
 
-  it('should create an ExpressServer as default when WEB_FRAMEWORK is not set', () => {
+  it("should create an ExpressServer as default when WEB_FRAMEWORK is not set", () => {
     delete process.env.WEB_FRAMEWORK;
     WebServerFactory.createServer(mockWishRepository, mockSessionService);
     expect(ExpressServer).toHaveBeenCalledTimes(1);
     expect(KoaServer).not.toHaveBeenCalled();
+  });
+
+  it("should throw an error for unsupported WEB_FRAMEWORK", () => {
+    process.env.WEB_FRAMEWORK = "unsupported";
+    expect(() => {
+      WebServerFactory.createServer(mockWishRepository, mockSessionService);
+    }).toThrow("Unsupported web framework: unsupported");
   });
 });
