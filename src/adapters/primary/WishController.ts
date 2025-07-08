@@ -12,12 +12,13 @@ export class WishController {
     private getLatestWishesUseCase: GetLatestWishesUseCase
   ) {}
 
-  async createWish(req: Request, res: Response) {
+  public createWish = async (req: Request, res: Response): Promise<void> => {
     try {
       const { name, wish } = req.body;
 
       if (!wish) {
-        return res.status(400).json({ error: "願い事は必須です" });
+        res.status(400).json({ error: "願い事は必須です" });
+        return;
       }
 
       const sessionId = req.cookies.sessionId;
@@ -42,19 +43,21 @@ export class WishController {
         error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });
     }
-  }
+  };
 
-  async updateWish(req: Request, res: Response) {
+  public updateWish = async (req: Request, res: Response): Promise<void> => {
     try {
       const { name, wish } = req.body;
       const sessionId = req.cookies.sessionId;
 
       if (!sessionId) {
-        return res.status(401).json({ error: "編集権限がありません" });
+        res.status(401).json({ error: "編集権限がありません" });
+        return;
       }
 
       if (!wish) {
-        return res.status(400).json({ error: "願い事は必須です" });
+        res.status(400).json({ error: "願い事は必須です" });
+        return;
       }
 
       await this.updateWishUseCase.execute(sessionId, name, wish);
@@ -64,14 +67,18 @@ export class WishController {
         error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });
     }
-  }
+  };
 
-  async getCurrentWish(req: Request, res: Response) {
+  public getCurrentWish = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     try {
       const sessionId = req.cookies.sessionId;
 
       if (!sessionId) {
-        return res.status(200).json({ wish: null });
+        res.status(200).json({ wish: null });
+        return;
       }
 
       const wish = await this.getWishBySessionUseCase.execute(sessionId);
@@ -81,9 +88,12 @@ export class WishController {
         error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });
     }
-  }
+  };
 
-  async getLatestWishes(req: Request, res: Response) {
+  public getLatestWishes = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
@@ -95,5 +105,5 @@ export class WishController {
         error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });
     }
-  }
+  };
 }

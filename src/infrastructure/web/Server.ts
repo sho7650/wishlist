@@ -19,26 +19,16 @@ export class Server {
 
   private setupRoutes() {
     // API エンドポイント
-    this.app.post(
-      "/api/wishes",
-      this.wishController.createWish.bind(this.wishController)
-    );
-    this.app.put(
-      "/api/wishes",
-      this.wishController.updateWish.bind(this.wishController)
-    );
-    this.app.get(
-      "/api/wishes/current",
-      this.wishController.getCurrentWish.bind(this.wishController)
-    );
-    this.app.get(
-      "/api/wishes",
-      this.wishController.getLatestWishes.bind(this.wishController)
-    );
+    this.app.post("/api/wishes", this.wishController.createWish);
+    this.app.put("/api/wishes", this.wishController.updateWish);
+    this.app.get("/api/wishes/current", this.wishController.getCurrentWish);
+    this.app.get("/api/wishes", this.wishController.getLatestWishes);
 
-    // SPAのためのフォールバック
-    this.app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "../../../public/index.html"));
+    this.app.get(/.*/, (req, res) => {
+      // APIリクエストでない場合のみindex.htmlを返すようにする
+      if (!req.path.startsWith("/api/")) {
+        res.sendFile(path.join(__dirname, "../../../public/index.html"));
+      }
     });
   }
 
