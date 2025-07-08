@@ -107,18 +107,30 @@ textarea {
   color: #721c24;
 }
 
+/* --- ここからが修正箇所 --- */
+
 .wishes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+  /* display: grid; を削除し、Flexboxレイアウトに変更 */
+  display: flex;
+  flex-direction: column; /* 要素を縦に並べる */
+  align-items: center; /* カードを中央揃えにする */
+  gap: 20px; /* カード間の垂直方向の余白 */
 }
 
 .wish-card {
+  /* PC表示での最大幅を設定し、読みやすさを確保 */
+  max-width: 700px;
+  /* コンテナの幅に合わせて伸縮するように設定 */
+  width: 100%;
+
+  /* 既存のスタイルは維持 */
   padding: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   transition: transform 0.2s;
 }
+
+/* --- ここまでが修正箇所 --- */
 
 .wish-card:hover {
   transform: translateY(-3px);
@@ -135,16 +147,16 @@ textarea {
   text-align: right;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .loading-indicator {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 20px;
   margin: 20px 0;
-}
-
-.hidden {
-  display: none !important; /* !important を追加して確実に非表示にする */
 }
 
 .spinner {
