@@ -4,7 +4,7 @@ version: 2.1
 # orbsは再利用可能な設定のパッケージです。
 # ここでは公式のNode.js orbを使用して、設定を簡略化します。
 orbs:
-  node: circleci/node
+  node: circleci/node@7.1.0
 
 # jobsは実行される一連のステップの集まりです。
 jobs:
