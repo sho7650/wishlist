@@ -1,5 +1,7 @@
-# Tanabata Wish Board
 [![CircleCI](https://dl.circleci.com/status-badge/img/gh/sho7650/wishlist/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/sho7650/wishlist/tree/main)
+
+# Tanabata Wish Board 
+
 A modern, digital re-imagination of the traditional Japanese Tanabata wish-making custom. This web application allows users from anywhere to post their wishes on a virtual bamboo tree, sharing their hopes and dreams in a beautiful, interactive display.
 
 The project is built with a clean, scalable architecture (Hexagonal Architecture and DDD) and is ready for deployment on Heroku.
