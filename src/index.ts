@@ -1,18 +1,10 @@
+// src/index.ts
+// import "dotenv/config"; // dotenvを一番最初にインポート
 import { DatabaseFactory } from "./infrastructure/db/DatabaseFactory";
 import { DatabaseWishRepository } from "./adapters/secondary/DatabaseWishRepository";
 import { DatabaseSessionService } from "./adapters/secondary/DatabaseSessionService";
-import { CreateWishUseCase } from "./application/usecases/CreateWishUseCase";
-import { UpdateWishUseCase } from "./application/usecases/UpdateWishUseCase";
-import { GetWishBySessionUseCase } from "./application/usecases/GetWishBySessionUseCase";
-import { GetLatestWishesUseCase } from "./application/usecases/GetLatestWishesUseCase";
-import { WishController } from "./adapters/primary/WishController";
-import { Server } from "./infrastructure/web/Server";
+import { WebServerFactory } from "./infrastructure/web/WebServerFactory";
 
-// 環境変数の設定
-const NODE_ENV = process.env.NODE_ENV || "development";
-console.log(`Starting application in ${NODE_ENV} mode`);
-
-// アプリケーションの起動処理
 async function bootstrap() {
   try {
     console.log("Initializing database connection...");
@@ -25,53 +17,29 @@ async function bootstrap() {
     const wishRepository = new DatabaseWishRepository(dbConnection);
     const sessionService = new DatabaseSessionService(dbConnection);
 
-    // ユースケースの初期化
-    const createWishUseCase = new CreateWishUseCase(
+    // Webサーバーのインスタンスをファクトリーから取得
+    const server = WebServerFactory.createServer(
       wishRepository,
       sessionService
     );
-    const updateWishUseCase = new UpdateWishUseCase(
-      wishRepository,
-      sessionService
-    );
-    const getWishBySessionUseCase = new GetWishBySessionUseCase(wishRepository);
-    const getLatestWishesUseCase = new GetLatestWishesUseCase(wishRepository);
 
-    // コントローラーの初期化
-    const wishController = new WishController(
-      createWishUseCase,
-      updateWishUseCase,
-      getWishBySessionUseCase,
-      getLatestWishesUseCase
-    );
-
-    // サーバーの起動
-    const server = new Server(wishController);
-
-    // Herokuが割り当てるポートを使用
-    const PORT = parseInt(process.env.PORT || "3000");
+    const PORT = parseInt(process.env.PORT || "3000", 10);
     server.start(PORT);
     console.log(`Server running on port ${PORT}`);
 
-    // グレースフルシャットダウン
-    process.on("SIGINT", async () => {
-      console.log("Shutting down application...");
+    const gracefulShutdown = async (signal: string) => {
+      console.log(`Received ${signal}. Shutting down gracefully...`);
       await dbConnection.close();
+      console.log("Database connection closed.");
       process.exit(0);
-    });
+    };
 
-    process.on("SIGTERM", async () => {
-      console.log("Heroku is terminating the application...");
-      await dbConnection.close();
-      process.exit(0);
-    });
+    process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
   } catch (error) {
     console.error("Failed to start application:", error);
     process.exit(1);
   }
 }
 
-bootstrap().catch((error) => {
-  console.error("Unhandled error during bootstrap:", error);
-  process.exit(1);
-});
+bootstrap();
