@@ -1,0 +1,52 @@
+# CircleCIのバージョンを指定します。常に2.1が推奨されます。
+version: 2.1
+
+# orbsは再利用可能な設定のパッケージです。
+# ここでは公式のNode.js orbを使用して、設定を簡略化します。
+orbs:
+  node: circleci/node
+
+# jobsは実行される一連のステップの集まりです。
+jobs:
+  # 'build-and-test' という名前のジョブを定義します。
+  build-and-test:
+    # 実行環境を指定します。ここではDockerコンテナを使用します。
+    docker:
+      # Node.js v24.xのDockerイメージを使用します。
+      # package.jsonで指定したバージョンと合わせるのがベストです。
+      - image: cimg/node:24.3.0
+
+    # このジョブが実行されるステップを定義します。
+    steps:
+      # 1. コードのチェックアウト
+      #    リポジトリのコードをコンテナ内にコピーします。
+      - checkout
+
+      # 2. 依存関係のキャッシュを復元
+      #    node.js orbが提供する便利なコマンドです。
+      #    package-lock.jsonの内容に基づいてキャッシュキーを生成し、
+      #    一致するキャッシュがあればnode_modulesを復元します。
+      - node/install-packages:
+          # npmではなくyarnを使用する場合は 'yarn' を指定します。
+          pkg-manager: npm
+
+      # 3. テストの実行
+      #    npm testスクリプトを実行します。
+      - run:
+          name: Run tests
+          command: npm test
+
+      # 4. テストカバレッジレポートの保存 (任意)
+      #    Jestでカバレッジレポートを生成するように設定している場合、
+      #    その結果をCircleCIのアーティファクトとして保存します。
+      - store_artifacts:
+          path: coverage
+          destination: coverage-report
+
+# workflowsはジョブの実行順序やトリガーを定義します。
+workflows:
+  # 'test_my_app' という名前のワークフローを定義します。
+  test_my_app:
+    jobs:
+      # 'build-and-test' ジョブを実行します。
+      - build-and-test
