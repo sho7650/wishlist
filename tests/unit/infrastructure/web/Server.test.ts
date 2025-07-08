@@ -88,7 +88,7 @@ describe("Server", () => {
       "/api/wishes",
       expect.any(Function)
     );
-    expect(mockApp.get).toHaveBeenCalledWith("*", expect.any(Function));
+    expect(mockApp.get).toHaveBeenCalledWith(/.*/, expect.any(Function));
   });
 
   it("should start server on specified port", () => {
