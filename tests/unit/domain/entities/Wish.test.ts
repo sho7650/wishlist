@@ -74,4 +74,83 @@ describe("Wish Entity", () => {
     expect(updatedWish.name).toBe(originalWish.name);
     expect(updatedWish.wish).toBe(originalWish.wish);
   });
+
+  describe("Validation", () => {
+    // 名前のバリデーションテスト
+    describe("Name Validation", () => {
+      it("should throw an error if name is longer than MAX_NAME_LENGTH", () => {
+        const longName = "a".repeat(Wish.MAX_NAME_LENGTH + 1); // 65文字
+        const wishProps = { name: longName, wish: "A valid wish" };
+
+        // new Wish() がエラーをスローすることを検証
+        expect(() => new Wish(wishProps)).toThrow(
+          `Name cannot be longer than ${Wish.MAX_NAME_LENGTH} characters.`
+        );
+      });
+
+      it("should NOT throw an error if name is exactly MAX_NAME_LENGTH", () => {
+        const validName = "a".repeat(Wish.MAX_NAME_LENGTH); // 64文字
+        const wishProps = { name: validName, wish: "A valid wish" };
+
+        // エラーがスローされないことを検証
+        expect(() => new Wish(wishProps)).not.toThrow();
+      });
+    });
+
+    // 願い事のバリデーションテスト
+    describe("Wish Validation", () => {
+      it("should throw an error if wish is shorter than MIN_WISH_LENGTH (empty)", () => {
+        const emptyWish = "";
+        const wishProps = { wish: emptyWish };
+
+        expect(() => new Wish(wishProps)).toThrow(
+          `Wish must have at least ${Wish.MIN_WISH_LENGTH} character.`
+        );
+      });
+
+      it("should throw an error if wish is longer than MAX_WISH_LENGTH", () => {
+        const longWish = "a".repeat(Wish.MAX_WISH_LENGTH + 1); // 241文字
+        const wishProps = { wish: longWish };
+
+        expect(() => new Wish(wishProps)).toThrow(
+          `Wish cannot be longer than ${Wish.MAX_WISH_LENGTH} characters.`
+        );
+      });
+
+      it("should NOT throw an error if wish length is within valid range", () => {
+        const minLengthWish = "a".repeat(Wish.MIN_WISH_LENGTH); // 1文字
+        const maxLengthWish = "a".repeat(Wish.MAX_WISH_LENGTH); // 240文字
+
+        // 最小長と最大長のどちらもエラーにならないことを検証
+        expect(() => new Wish({ wish: minLengthWish })).not.toThrow();
+        expect(() => new Wish({ wish: maxLengthWish })).not.toThrow();
+      });
+    });
+
+    // updateメソッドのバリデーションテスト
+    describe("Update Method Validation", () => {
+      it("should throw an error when updating with an invalid name", () => {
+        const originalWish = new Wish({ wish: "Valid wish" });
+        const invalidName = "a".repeat(Wish.MAX_NAME_LENGTH + 1);
+
+        expect(() => originalWish.update(invalidName, "Valid wish")).toThrow(
+          `Name cannot be longer than ${Wish.MAX_NAME_LENGTH} characters.`
+        );
+      });
+
+      it("should throw an error when updating with an invalid wish", () => {
+        const originalWish = new Wish({ wish: "Valid wish" });
+        const invalidWish = "a".repeat(Wish.MAX_WISH_LENGTH + 1);
+
+        expect(() => originalWish.update("Valid name", invalidWish)).toThrow(
+          `Wish cannot be longer than ${Wish.MAX_WISH_LENGTH} characters.`
+        );
+
+        const emptyWish = "";
+        expect(() => originalWish.update("Valid name", emptyWish)).toThrow(
+          `Wish must have at least ${Wish.MIN_WISH_LENGTH} character.`
+        );
+      });
+    });
+  });
 });
