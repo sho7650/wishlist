@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM Content Loaded");
+  console.log("DOM Content Loaded: Initializing application...");
 
-  // DOM要素
+  // --- DOM要素の取得 ---
   const viewerContainer = document.getElementById("viewer-container");
   const formContainer = document.getElementById("form-container");
   const newWishButton = document.getElementById("new-wish-button");
@@ -15,245 +15,122 @@ document.addEventListener("DOMContentLoaded", () => {
   const wishesList = document.getElementById("wishes-list");
   const loadingIndicator = document.getElementById("loading-indicator");
 
-  // DOM要素の存在確認
-  console.log("DOM Elements Check:");
-  console.log("loadingIndicator:", loadingIndicator);
-
-  // 状態管理
+  // --- アプリケーションの状態管理 ---
   let isEditMode = false;
   let currentOffset = 0;
   let isLoading = false;
   let hasMoreWishes = true;
 
-  // 画面切り替え
+  // --- 画面表示の切り替え関数 ---
   function showViewerScreen() {
-    console.log("Showing Viewer Screen");
-    formContainer.classList.add("hidden");
+    console.log("Switching to Viewer Screen");
     viewerContainer.classList.remove("hidden");
+    formContainer.classList.add("hidden");
   }
 
   function showFormScreen() {
-    console.log("Showing Form Screen");
+    console.log("Switching to Form Screen");
     viewerContainer.classList.add("hidden");
     formContainer.classList.remove("hidden");
   }
 
-  // ボタンのイベントリスナー
-  if (newWishButton) {
-    console.log("Adding click event listener to newWishButton");
-    newWishButton.addEventListener("click", async () => {
-      console.log("New Wish Button Clicked");
-      // フォームをリセット
-      wishForm.reset();
-      isEditMode = false;
-      formTitle.textContent = "願い事を投稿";
-      submitButton.textContent = "投稿する";
-
-      // 現在のユーザーの投稿を確認して、存在すれば編集モードに
-      try {
-        console.log("Checking current user wish");
-        const response = await fetch("/api/wishes/current");
-        const data = await response.json();
-
-        if (data.wish) {
-          // 編集モードに設定
-          console.log("User has existing wish, entering edit mode");
-          isEditMode = true;
-          formTitle.textContent = "願い事を編集";
-          submitButton.textContent = "更新する";
-
-          // フォームに値を設定
-          nameInput.value = data.wish.name || "";
-          wishInput.value = data.wish.wish;
-        } else {
-          console.log("No existing wish found, staying in create mode");
-        }
-      } catch (error) {
-        console.error("Error checking current user wish:", error);
-      }
-
-      showFormScreen();
-    });
-  } else {
-    console.error("New Wish Button not found in DOM");
-  }
-
-  if (backButton) {
-    console.log("Adding click event listener to backButton");
-    backButton.addEventListener("click", () => {
-      console.log("Back Button Clicked");
-      showViewerScreen();
-    });
-  } else {
-    console.error("Back Button not found in DOM");
-  }
-
-  // 願い事の読み込み
+  // --- 願い事データを読み込む関数 ---
   async function loadWishes(offset = 0, append = false) {
-    console.log(`Loading wishes: offset=${offset}, append=${append}`);
     if (isLoading) {
-      console.log("Already loading, skipping this request");
+      console.log(
+        "loadWishes: Skipped because a request is already in progress."
+      );
+      return;
+    }
+    if (!append && !hasMoreWishes) {
+      console.log(
+        "loadWishes: Skipped because there are no more wishes to load for a fresh list."
+      );
       return;
     }
 
-    if (!append && !hasMoreWishes) {
-      console.log("No more wishes and not appending, skipping");
-      return;
-    }
+    isLoading = true;
+    loadingIndicator.classList.remove("hidden");
+    console.log(`loadWishes: Fetching wishes... (offset: ${offset})`);
 
     try {
-      // ローディング状態を設定
-      isLoading = true;
-      if (loadingIndicator) {
-        loadingIndicator.classList.remove("hidden");
-      }
-
-      console.log(
-        `Fetching wishes from API: /api/wishes?limit=20&offset=${offset}`
-      );
       const response = await fetch(`/api/wishes?limit=20&offset=${offset}`);
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
       const data = await response.json();
-      console.log(`Received ${data.wishes.length} wishes from API`);
 
       if (!append) {
         wishesList.innerHTML = "";
       }
 
-      if (data.wishes.length === 0) {
-        console.log("No more wishes to load");
-        hasMoreWishes = false;
-      } else {
-        // 願い事カードを追加
+      if (data.wishes.length > 0) {
         data.wishes.forEach((wish) => {
           const card = document.createElement("div");
           card.className = "wish-card";
-
-          // ランダムな色を生成
           const hue = Math.floor(Math.random() * 360);
           card.style.backgroundColor = `hsl(${hue}, 70%, 90%)`;
-
           card.innerHTML = `
             <div class="wish-content">${escapeHTML(wish.wish)}</div>
             <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
           `;
-
           wishesList.appendChild(card);
         });
-
         currentOffset += data.wishes.length;
-        console.log(`New offset: ${currentOffset}`);
       }
+
+      // 取得したデータがリクエストした数より少なければ、これが最後のページ
+      if (data.wishes.length < 20) {
+        hasMoreWishes = false;
+        console.log("loadWishes: Reached the end of all wishes.");
+      }
+
+      console.log(
+        `loadWishes: Success. New offset is ${currentOffset}. Has more: ${hasMoreWishes}`
+      );
     } catch (error) {
       console.error("Error loading wishes:", error);
+      hasMoreWishes = false; // エラー時も追加読み込みを停止
     } finally {
-      // ローディング状態をリセット
       isLoading = false;
-      if (loadingIndicator) {
-        console.log("Hiding loading indicator");
-        loadingIndicator.classList.add("hidden");
-      }
+      loadingIndicator.classList.add("hidden");
+      console.log("loadWishes: Finished. isLoading is now false.");
     }
   }
 
-  // 無限スクロール
+  // --- 無限スクロールのハンドラ ---
   function handleScroll() {
-    if (viewerContainer.classList.contains("hidden")) {
-      return;
-    }
+    // 閲覧画面でない場合は何もしない
+    if (formContainer.classList.contains("hidden") === false) return;
 
-    const scrollY = window.scrollY;
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.documentElement.scrollHeight;
+    const scrollableHeight =
+      document.documentElement.scrollHeight - window.innerHeight;
+    const scrollPosition = window.scrollY;
 
-    // 下端に近づいたら追加読み込み
-    if (
-      scrollY + windowHeight > documentHeight - 200 &&
-      !isLoading &&
-      hasMoreWishes
-    ) {
-      console.log("Near bottom of page, loading more wishes");
-      loadWishes(currentOffset, true);
+    // デバッグ用ログ（必要に応じてコメントを外してください）
+    // console.log(`Scroll: ${scrollPosition.toFixed(0)} / ${scrollableHeight.toFixed(0)}`);
+
+    // ドキュメントの底から200px以内にスクロールしたら次のデータを読み込む
+    if (scrollableHeight > 0 && scrollableHeight - scrollPosition < 200) {
+      if (!isLoading && hasMoreWishes) {
+        console.log(
+          "handleScroll: Reached bottom of page, attempting to load more wishes."
+        );
+        loadWishes(currentOffset, true);
+      }
     }
   }
 
-  // フォーム送信処理
-  if (wishForm) {
-    console.log("Adding submit event listener to wishForm");
-    wishForm.addEventListener("submit", async (e) => {
-      console.log("Form submitted");
-      e.preventDefault();
-
-      const name = nameInput.value.trim();
-      const wish = wishInput.value.trim();
-
-      if (!wish) {
-        showStatus("願い事は必須です", "error");
-        return;
-      }
-
-      try {
-        let response;
-
-        if (isEditMode) {
-          console.log("Sending PUT request to update wish");
-          // 更新リクエスト
-          response = await fetch("/api/wishes", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, wish }),
-          });
-        } else {
-          console.log("Sending POST request to create new wish");
-          // 新規投稿リクエスト
-          response = await fetch("/api/wishes", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, wish }),
-          });
-        }
-
-        const data = await response.json();
-
-        if (response.ok) {
-          showStatus(
-            isEditMode ? "願い事を更新しました" : "願い事を投稿しました",
-            "success"
-          );
-
-          // 閲覧画面に戻り、最新データをリロード
-          setTimeout(() => {
-            currentOffset = 0;
-            hasMoreWishes = true;
-            showViewerScreen();
-            loadWishes(0, false);
-          }, 1000);
-        } else {
-          console.error("API returned error:", data.error);
-          showStatus(data.error || "エラーが発生しました", "error");
-        }
-      } catch (error) {
-        console.error("Error submitting form:", error);
-        showStatus("通信エラーが発生しました", "error");
-      }
-    });
-  } else {
-    console.error("Wish Form not found in DOM");
-  }
-
-  // ステータスメッセージを表示
+  // --- その他のヘルパー関数 ---
   function showStatus(message, type) {
-    console.log(`Showing status: ${message} (${type})`);
     statusMessage.textContent = message;
-    statusMessage.className = type;
-
-    // 3秒後に消える
+    statusMessage.className = `status-message ${type}`;
     setTimeout(() => {
       statusMessage.textContent = "";
-      statusMessage.className = "";
+      statusMessage.className = "status-message";
     }, 3000);
   }
 
-  // HTMLエスケープ処理
   function escapeHTML(str) {
     if (!str) return "";
     return str
@@ -264,19 +141,90 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/'/g, "&#039;");
   }
 
-  // スクロールイベントのリスナー
-  console.log("Adding scroll event listener to window");
+  // --- イベントリスナーの設定 ---
+
+  // 「願い事を投稿する」ボタン
+  newWishButton.addEventListener("click", async () => {
+    console.log("New Wish Button clicked.");
+    wishForm.reset();
+    isEditMode = false;
+    formTitle.textContent = "願い事を投稿";
+    submitButton.textContent = "投稿する";
+
+    try {
+      const response = await fetch("/api/wishes/current");
+      const data = await response.json();
+      if (data.wish) {
+        console.log("Existing wish found. Entering edit mode.");
+        isEditMode = true;
+        formTitle.textContent = "願い事を編集";
+        submitButton.textContent = "更新する";
+        nameInput.value = data.wish.name || "";
+        wishInput.value = data.wish.wish;
+      }
+    } catch (error) {
+      console.error("Error checking for current user wish:", error);
+    }
+
+    showFormScreen();
+  });
+
+  // 「閲覧画面に戻る」ボタン
+  backButton.addEventListener("click", () => {
+    console.log("Back Button clicked.");
+    showViewerScreen();
+  });
+
+  // 投稿フォームの送信
+  wishForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    console.log("Wish form submitted.");
+
+    const name = nameInput.value.trim();
+    const wish = wishInput.value.trim();
+
+    if (!wish) {
+      showStatus("願い事は必須です", "error");
+      return;
+    }
+
+    const url = "/api/wishes";
+    const method = isEditMode ? "PUT" : "POST";
+
+    try {
+      const response = await fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, wish }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showStatus(
+          isEditMode ? "願い事を更新しました" : "願い事を投稿しました",
+          "success"
+        );
+
+        setTimeout(() => {
+          // 状態をリセットして、閲覧画面を再読み込み
+          currentOffset = 0;
+          hasMoreWishes = true;
+          showViewerScreen();
+          loadWishes(0, false);
+        }, 1000);
+      } else {
+        showStatus(data.error || "エラーが発生しました", "error");
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      showStatus("通信エラーが発生しました", "error");
+    }
+  });
+
+  // 無限スクロール
   window.addEventListener("scroll", handleScroll);
 
-  // 初期化
-  console.log("Initializing app");
-
-  // ローディングインジケーターを最初に非表示にする
-  if (loadingIndicator) {
-    loadingIndicator.classList.add("hidden");
-  }
-
-  // 画面表示と初期データ読み込み
-  showViewerScreen();
+  // --- アプリケーションの初期化 ---
   loadWishes(0, false);
 });
