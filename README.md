@@ -1,4 +1,4 @@
-[![CircleCI](https://dl.circleci.com/status-badge/img/gh/sho7650/wishlist/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/sho7650/wishlist/tree/main)
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/sho7650/wishlist/tree/main.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/sho7650/wishlist/tree/main) [![Known Vulnerabilities](https://snyk.io/test/github/sho7650/wishlist/badge.svg)](https://snyk.io/test/github/sho7650/wishlist)
 
 # Tanabata Wish Board 
 
