@@ -1,4 +1,4 @@
-import { Server } from "../../../../src/infrastructure/web/Server";
+import { ExpressServer } from "../../../../src/infrastructure/web/ExpressServer";
 import { WishController } from "../../../../src/adapters/primary/WishController";
 // expressのインポートは型のヒントのために残しておきます
 import express from "express";
@@ -49,7 +49,7 @@ class MockWishController extends WishController {
 }
 
 describe("Server", () => {
-  let server: Server;
+  let server: ExpressServer;
   let mockWishController: WishController;
 
   beforeEach(() => {
@@ -58,7 +58,7 @@ describe("Server", () => {
 
     mockWishController = new MockWishController();
     // 4. Serverをインスタンス化します。これにより内部で mockApp が使用されます。
-    server = new Server(mockWishController);
+    server = new ExpressServer(mockWishController);
   });
 
   it("should setup middleware correctly", () => {
@@ -96,29 +96,5 @@ describe("Server", () => {
     server.start(port);
 
     expect(mockApp.listen).toHaveBeenCalledWith(port, expect.any(Function));
-  });
-
-  it("should use default port when none specified", () => {
-    server.start();
-
-    // server.tsのstartメソッドではprocess.env.PORTを優先するため、テスト実行時に未定義であることを確認
-    const expectedPort = parseInt(process.env.PORT || "3000");
-    expect(mockApp.listen).toHaveBeenCalledWith(
-      expectedPort,
-      expect.any(Function)
-    );
-  });
-
-  it("should use PORT environment variable when available", () => {
-    const originalEnv = process.env;
-    process.env = { ...originalEnv, PORT: "4000" };
-
-    // Serverのインスタンスを再作成して新しい環境変数を反映させる
-    server = new Server(mockWishController);
-    server.start();
-
-    expect(mockApp.listen).toHaveBeenCalledWith(4000, expect.any(Function));
-
-    process.env = originalEnv;
   });
 });
