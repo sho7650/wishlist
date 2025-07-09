@@ -39,6 +39,31 @@ document.addEventListener("DOMContentLoaded", () => {
     formContainer.classList.remove("hidden");
   }
 
+  /**
+   * 要素にランダムな揺れアニメーションを適用する関数
+   * @param {HTMLElement} element - アニメーションを適用する要素
+   */
+  function applyRandomAnimation(element) {
+    // 1. ランダムな値を生成する
+    const animationName = Math.random() < 0.5 ? "sway-subtle" : "sway-wide";
+    const duration = Math.random() * 6 + 6;
+    const delay = Math.random() * -3;
+    const direction = Math.random() < 0.5 ? "alternate" : "normal";
+    const timingFunctions = ["ease-in-out", "linear", "ease-in", "ease-out"];
+    const timingFunction =
+      timingFunctions[Math.floor(Math.random() * timingFunctions.length)];
+
+    // 2. 生成した値をCSS変数として要素のスタイルに設定する
+    element.style.setProperty("--sway-name", animationName);
+    element.style.setProperty("--sway-duration", `${duration.toFixed(2)}s`);
+    element.style.setProperty("--sway-timing", timingFunction);
+    element.style.setProperty("--sway-delay", `${delay.toFixed(2)}s`);
+    element.style.setProperty("--sway-direction", direction);
+
+    // transform-originは直接設定してOK
+    element.style.transformOrigin = `center ${Math.random() * 20 - 10}px`;
+  }
+
   // 👇 --- ボタンの文言を更新する関数を新規作成 ---
   async function updatePostButtonState() {
     try {
@@ -96,6 +121,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
           `;
           wishesList.appendChild(card);
+
+          applyRandomAnimation(card);
         });
         currentOffset += data.wishes.length;
       }
