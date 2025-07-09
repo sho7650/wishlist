@@ -8,12 +8,15 @@ interface WishRow {
   name: string | null;
   wish: string;
   created_at: string | Date; // 文字列か日付を許容
+  user_id: number | null;
 }
 
 export class DatabaseWishRepository implements WishRepository {
   constructor(private db: DatabaseConnection) {}
 
-  async save(wish: Wish): Promise<void> {
+  async save(wish: Wish, userId?: number): Promise<void> {
+    console.log("Saving wish:", wish);
+    console.log("User ID:", userId);
     // UPSERTクエリ (DBタイプに関わらず、ファクトリで適切に変換される)
     const query = `
       INSERT INTO wishes (id, name, wish, created_at, user_id)
@@ -26,7 +29,7 @@ export class DatabaseWishRepository implements WishRepository {
       wish.name || null,
       wish.wish,
       wish.createdAt,
-      wish.userId || null, // ユーザーIDがなければNULL
+      userId || null, // ユーザーIDがなければNULL
     ]);
   }
 
@@ -60,6 +63,7 @@ export class DatabaseWishRepository implements WishRepository {
       name: row.name || undefined,
       wish: row.wish,
       createdAt: this.parseDate(row.created_at),
+      userId: row.user_id || undefined, // ユーザーIDがなければundefined
     });
   }
 
@@ -91,6 +95,7 @@ export class DatabaseWishRepository implements WishRepository {
       name: row.name || undefined,
       wish: row.wish,
       createdAt: createdAt,
+      userId: row.user_id || undefined,
     });
   }
 
@@ -107,6 +112,7 @@ export class DatabaseWishRepository implements WishRepository {
           name: row.name || undefined,
           wish: row.wish,
           createdAt: this.parseDate(row.created_at),
+          userId: row.user_id || undefined, // ユーザーIDがなければundefined
         })
     );
   }
