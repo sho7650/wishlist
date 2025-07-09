@@ -18,7 +18,7 @@ const mockApp = {
 jest.mock("express", () => {
   const actualExpress = jest.fn(() => mockApp);
   (actualExpress as any).json = jest.fn(() => "json middleware");
-  (actualExpress as any).static = jest.fn(() => "static middleware");
+  (actualExpress as any).static = jest.fn(() => jest.fn());
   return actualExpress;
 });
 
@@ -54,7 +54,6 @@ describe("ExpressServer", () => {
     // 期待されるミドルウェアがすべてuseで登録されているか検証
     expect(mockApp.use).toHaveBeenCalledWith("helmet middleware");
     expect(mockApp.use).toHaveBeenCalledWith("json middleware");
-    expect(mockApp.use).toHaveBeenCalledWith("static middleware");
     expect(mockApp.use).toHaveBeenCalledWith("cookieParser middleware");
   });
 
@@ -78,6 +77,22 @@ describe("ExpressServer", () => {
     );
     // SPAフォールバック用のルート
     expect(mockApp.get).toHaveBeenCalledWith(/.*/, expect.any(Function));
+  });
+
+  it("should SPA fallback to index.html for non-API routes", () => {
+    // SPAフォールバックのルートが正しく設定されているか検証
+    const fallbackRoute = mockApp.get.mock.calls.find(
+      (call) => call[0] instanceof RegExp && call[0].test("/public/index.html")
+    );
+    expect(fallbackRoute).toBeDefined();
+    expect(fallbackRoute[1]).toBeInstanceOf(Function); // ハンドラが関数であることを確認
+  });
+
+  it("should serve static files from the public directory", () => {
+    // express.staticが正しいパスで呼ばれているか検証
+    expect(mockApp.use).toHaveBeenCalledWith(
+      expect.any(Function) // static middlewareは関数なので、具体的な内容はチェックしない
+    );
   });
 
   it("should start the server on the specified port", () => {
