@@ -15,6 +15,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const wishesList = document.getElementById("wishes-list");
   const loadingIndicator = document.getElementById("loading-indicator");
 
+  // 👇 --- ポップアップ関連の要素を追加 ---
+  const howToUseLink = document.getElementById("how-to-use-link");
+  const modalContainer = document.getElementById("modal-container");
+  const modalCloseButton = document.getElementById("modal-close-button");
+
   // --- アプリケーションの状態管理 ---
   let isEditMode = false;
   let currentOffset = 0;
@@ -32,6 +37,22 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("Switching to Form Screen");
     viewerContainer.classList.add("hidden");
     formContainer.classList.remove("hidden");
+  }
+
+  // 👇 --- ボタンの文言を更新する関数を新規作成 ---
+  async function updatePostButtonState() {
+    try {
+      const response = await fetch("/api/wishes/current");
+      const data = await response.json();
+      if (data.wish) {
+        newWishButton.textContent = "投稿を修正する";
+      } else {
+        newWishButton.textContent = "願い事を投稿する";
+      }
+    } catch (error) {
+      console.error("Could not check user status:", error);
+      newWishButton.textContent = "願い事を投稿する"; // エラー時はデフォルト
+    }
   }
 
   // --- 願い事データを読み込む関数 ---
@@ -124,9 +145,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- その他のヘルパー関数 ---
   function showStatus(message, type) {
     statusMessage.textContent = message;
+    // 👇 status-message のクラス名を変更
     statusMessage.className = `status-message ${type}`;
     setTimeout(() => {
-      statusMessage.textContent = "";
       statusMessage.className = "status-message";
     }, 3000);
   }
@@ -217,11 +238,11 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
         setTimeout(() => {
-          // 状態をリセットして、閲覧画面を再読み込み
           currentOffset = 0;
           hasMoreWishes = true;
           showViewerScreen();
           loadWishes(0, false);
+          updatePostButtonState(); // ★追加：閲覧画面に戻った時にボタンを更新
         }, 1000);
       } else {
         showStatus(data.error || "エラーが発生しました", "error");
@@ -235,6 +256,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // 無限スクロール
   window.addEventListener("scroll", handleScroll);
 
+  // 👇 --- ポップアップのイベントリスナーを追加 ---
+  function openModal() {
+    modalContainer.classList.remove("hidden");
+  }
+
+  function closeModal() {
+    modalContainer.classList.add("hidden");
+  }
+
+  howToUseLink.addEventListener("click", (e) => {
+    e.preventDefault(); // リンクのデフォルト動作を防ぐ
+    openModal();
+  });
+
+  modalCloseButton.addEventListener("click", closeModal);
+
+  // モーダルの外側（背景）をクリックした時に閉じる
+  modalContainer.addEventListener("click", (e) => {
+    if (e.target === modalContainer) {
+      closeModal();
+    }
+  });
+
   // --- アプリケーションの初期化 ---
   loadWishes(0, false);
+  updatePostButtonState();
 });

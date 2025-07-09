@@ -1,6 +1,8 @@
-/* public/styles.css */
+/* public/styles.css (All suggestions included) */
 
 /* --- 全体のスタイルと背景 --- */
+@import url("https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap");
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -72,14 +74,12 @@ h1 {
 .form-group {
   margin-bottom: 20px;
 }
-
 label {
   display: block;
   margin-bottom: 8px;
   font-weight: 500;
   color: #eee;
 }
-
 input,
 textarea {
   width: 100%;
@@ -91,12 +91,10 @@ textarea {
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
-
 input::placeholder,
 textarea::placeholder {
   color: rgba(255, 255, 255, 0.5);
 }
-
 textarea {
   min-height: 120px;
   resize: vertical;
@@ -109,52 +107,53 @@ textarea {
   border-radius: 8px;
   text-align: center;
 }
-
-.success {
+.status-message.success {
   background-color: rgba(46, 204, 113, 0.8);
   color: #fff;
 }
-
-.error {
+.status-message.error {
   background-color: rgba(231, 76, 60, 0.8);
   color: #fff;
 }
 
-/* --- 短冊表示エリア (ここからがメインの修正) --- */
+/* --- 短冊表示エリア --- */
 .wishes-grid {
-  /* Flexboxを使って短冊を並べる準備 */
   display: flex;
-  flex-wrap: wrap; /* 画面幅で折り返す */
-  justify-content: center; /* 中央揃え */
-  gap: 25px; /* 短冊間の余白 */
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 25px;
   padding: 20px 0;
 }
 
-.wish-card {
-  /* 短冊の基本スタイル */
-  font-family: "Yuji Syuku", "ヒラギノ明朝 ProN W3", "Hiragino Mincho ProN",
-    "HG明朝E", "ＭＳ Ｐ明朝", "MS PMincho", "MS 明朝", serif;
-  writing-mode: vertical-rl; /* ★文字を縦書きにする */
-  text-orientation: mixed;
-  padding: 40px 15px 15px 15px; /* 上に余白を持たせる */
-  border-radius: 4px;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
-
-  /* ★コンテンツの量に合わせてサイズが変わるようにする */
-  width: fit-content; /* 幅をコンテンツに合わせる */
-  height: fit-content; /* 高さをコンテンツに合わせる */
-  min-height: 200px; /* 最低限の高さを確保 */
-  max-height: 400px; /* 高くなりすぎないように制限 */
-
-  /* ★短冊の見た目 */
-  position: relative; /* 穴や紐の基準位置にする */
-  border: 1px solid rgba(0, 0, 0, 0.1);
-
-  /* ★少しずつ角度を変えるアニメーション */
-  transition: transform 0.4s ease-in-out;
+@keyframes sway {
+  0% {
+    transform: rotate(1.5deg);
+  }
+  50% {
+    transform: rotate(-0.5deg);
+  }
+  100% {
+    transform: rotate(1.5deg);
+  }
 }
 
-/* ★短冊の穴を疑似要素で作成 */
+.wish-card {
+  font-family: "Yuji Syuku", serif;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 40px 15px 15px 15px;
+  border-radius: 4px;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+  width: fit-content;
+  height: fit-content;
+  min-height: 200px;
+  max-height: 400px;
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  transition: transform 0.4s ease-in-out, box-shadow 0.4s ease;
+  animation: sway 7s ease-in-out infinite;
+}
+
 .wish-card::before {
   content: "";
   position: absolute;
@@ -164,71 +163,78 @@ textarea {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #f5f5f5; /* 背景色と同じにして穴が開いているように見せる */
+  background: #f5f5f5;
   border: 1px solid rgba(0, 0, 0, 0.1);
   box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.2);
+  z-index: 2; /* 紐より手前に表示 */
 }
 
-/* ★短冊ごとに角度や位置をランダムに見せる */
+.wish-card::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 15px;
+  background-color: rgba(0, 0, 0, 0.2);
+  opacity: 0.7;
+}
+
 .wish-card:nth-child(5n + 1) {
-  transform: rotate(2.5deg);
-  margin-top: 10px;
+  background-color: #ffefb8;
+  animation-delay: -1.2s;
 }
 .wish-card:nth-child(5n + 2) {
-  transform: rotate(-1.5deg);
+  background-color: #d4f0fd;
+  animation-delay: -0.5s;
 }
 .wish-card:nth-child(5n + 3) {
-  transform: rotate(1deg);
-  margin-top: 15px;
+  background-color: #ffd8d8;
+  animation-delay: -2.5s;
 }
 .wish-card:nth-child(5n + 4) {
-  transform: rotate(-3deg);
+  background-color: #d9f7d6;
+  animation-delay: -3.1s;
 }
 .wish-card:nth-child(5n + 5) {
-  transform: rotate(2deg);
-  margin-top: 5px;
+  background-color: #f3e0ff;
+  animation-delay: -1.8s;
 }
 
 .wish-card:hover {
-  transform: rotate(0deg) scale(1.05) !important; /* ホバー時はまっすぐ拡大 */
+  transform: rotate(0deg) scale(1.05) !important;
   z-index: 10;
   box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.3);
+  animation-play-state: paused; /* ホバー中は揺れを止める */
 }
 
-/* 短冊内のコンテンツスタイル */
 .wish-content {
   font-size: 18px;
-  writing-mode: vertical-rl; /* 縦書きを継承 */
   letter-spacing: 2px;
-  max-height: 320px; /* 文字が多すぎるときに...になるように */
+  max-height: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 0;
-  margin-right: 20px; /* 名前のための余白 */
+  margin-right: 20px;
 }
 
 .wish-author {
   font-size: 16px;
-  writing-mode: vertical-rl; /* 縦書きを継承 */
   color: #555;
-  text-align: right; /* 縦書きなので右揃えが下揃えになる */
-  align-self: flex-end; /* 右端（下端）に配置 */
+  align-self: flex-end;
 }
 
 /* --- 非表示・ローディングのスタイル --- */
 .hidden {
   display: none !important;
 }
-
 .loading-indicator {
-  /* 縦書きレイアウトの中央に配置するため */
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 40px 0;
 }
-
 .spinner {
   width: 40px;
   height: 40px;
@@ -238,7 +244,6 @@ textarea {
   animation: spin 1s linear infinite;
   margin-bottom: 15px;
 }
-
 @keyframes spin {
   0% {
     transform: rotate(0deg);
@@ -247,10 +252,105 @@ textarea {
     transform: rotate(360deg);
   }
 }
-
 .loading-indicator p {
   color: #fff;
 }
 
-/* --- Google Fontsから手書き風フォントをインポート --- */
-@import url("https://fonts.googleapis.com/css2?family=Yuji+Syuku&display=swap");
+/* --- 「使い方」リンクのスタイル --- */
+#how-to-use-link {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  font-size: 14px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+  z-index: 100;
+  transition: all 0.3s ease;
+}
+
+#how-to-use-link:hover {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* --- ポップアップ（モーダル）のスタイル --- */
+.modal-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+/* ポップアップ表示時のスタイル */
+.modal-container:not(.hidden) {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal-content {
+  background: #fff;
+  color: #333;
+  padding: 30px 40px;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 90%;
+  position: relative;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  transform: scale(0.95);
+  transition: transform 0.3s ease;
+}
+
+.modal-container:not(.hidden) .modal-content {
+  transform: scale(1);
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.modal-content p {
+  margin-bottom: 20px;
+  line-height: 1.8;
+}
+
+.modal-content ul {
+  padding-left: 20px;
+  line-height: 1.8;
+}
+
+.modal-content li {
+  margin-bottom: 10px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #aaa;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.modal-close:hover {
+  color: #333;
+}
