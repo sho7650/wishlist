@@ -16,20 +16,33 @@ export class DatabaseWishRepository implements WishRepository {
   async save(wish: Wish): Promise<void> {
     // UPSERTクエリ (DBタイプに関わらず、ファクトリで適切に変換される)
     const query = `
-    INSERT INTO wishes (id, name, wish, created_at)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (id) 
-    DO UPDATE SET name = $2, wish = $3, created_at = $4
-  `;
-
-    // created_at が常に最新の状態になるように、更新時も現在の日時を使用
-    // または wish.createdAt を使用してオリジナルの作成日時を保持
+      INSERT INTO wishes (id, name, wish, created_at, user_id)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (id) 
+      DO UPDATE SET name = $2, wish = $3, user_id = $5
+    `;
     await this.db.query(query, [
       wish.id,
       wish.name || null,
       wish.wish,
-      wish.createdAt, // この値が確実に存在することを確認
+      wish.createdAt,
+      wish.userId || null, // ユーザーIDがなければNULL
     ]);
+  }
+
+  async findByUserId(userId: number): Promise<Wish | null> {
+    const result = await this.db.query(
+      "SELECT * FROM wishes WHERE user_id = $1 LIMIT 1",
+      [userId]
+    );
+    if (result.rows.length === 0) return null;
+    return new Wish({
+      id: result.rows[0].id,
+      name: result.rows[0].name,
+      wish: result.rows[0].wish,
+      createdAt: result.rows[0].created_at,
+      userId: result.rows[0].user_id,
+    });
   }
 
   async findById(id: string): Promise<Wish | null> {

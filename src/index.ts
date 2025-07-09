@@ -1,10 +1,12 @@
 // src/index.ts
+import "dotenv/config"; // dotenvを一番最初にインポート
 import "newrelic";
-// import "dotenv/config"; // dotenvを一番最初にインポート
+import passport from "passport";
 import { DatabaseFactory } from "./infrastructure/db/DatabaseFactory";
 import { DatabaseWishRepository } from "./adapters/secondary/DatabaseWishRepository";
 import { DatabaseSessionService } from "./adapters/secondary/DatabaseSessionService";
 import { WebServerFactory } from "./infrastructure/web/WebServerFactory";
+// import { configurePassport } from "./config/express-passport";
 
 async function bootstrap() {
   try {
@@ -14,12 +16,19 @@ async function bootstrap() {
     await dbConnection.initializeDatabase();
     console.log("Database initialized successfully");
 
+    // 2. Passportの認証戦略を設定
+    //    必ずサーバーを構築する前に実行する
+    console.log("Configuring Passport...");
+    // configurePassport(passport, dbConnection);
+    console.log("Passport configured successfully.");
+
     // リポジトリとサービスの初期化
     const wishRepository = new DatabaseWishRepository(dbConnection);
     const sessionService = new DatabaseSessionService(dbConnection);
 
     // Webサーバーのインスタンスをファクトリーから取得
     const server = WebServerFactory.createServer(
+      dbConnection,
       wishRepository,
       sessionService
     );

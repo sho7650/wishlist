@@ -1,4 +1,5 @@
 import { WebServer } from "./WebServer";
+import passport, { Passport, PassportStatic } from "passport";
 import { ServerBuilderStrategy } from "./ServerBuilderStrategy";
 import { ExpressServerBuilder } from "./ExpressServerBuilder";
 import { KoaServerBuilder } from "./KoaServerBuilder";
@@ -12,6 +13,7 @@ export class WebServerFactory {
   };
 
   static createServer(
+    dbConnection: any, // ここは実際のDB接続型に置き換える
     wishRepository: WishRepository,
     sessionService: SessionService
   ): WebServer {
@@ -22,7 +24,19 @@ export class WebServerFactory {
     if (!builder) {
       throw new Error(`Unsupported web framework: ${framework}`);
     }
+    if (framework === "koa") {
+      return new KoaServerBuilder().build(
+        dbConnection,
+        wishRepository,
+        sessionService
+      );
+    }
 
-    return builder.build(wishRepository, sessionService);
+    // Expressの場合
+    return new ExpressServerBuilder().build(
+      dbConnection,
+      wishRepository,
+      sessionService
+    );
   }
 }

@@ -7,12 +7,15 @@ import {
   UpdateWishUseCase,
   GetWishBySessionUseCase,
   GetLatestWishesUseCase,
+  GetUserWishUseCase,
 } from "../../application/usecases"; // usecases/index.ts などでまとめると綺麗
 import { WishRepository } from "../../domain/repositories/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
+import { PassportStatic } from "passport";
 
 export class ExpressServerBuilder implements ServerBuilderStrategy {
   public build(
+    dbConnection: any, // ここは実際のDB接続型に置き換える
     wishRepository: WishRepository,
     sessionService: SessionService
   ): WebServer {
@@ -22,20 +25,19 @@ export class ExpressServerBuilder implements ServerBuilderStrategy {
       wishRepository,
       sessionService
     );
-    const updateWishUseCase = new UpdateWishUseCase(
-      wishRepository,
-      sessionService
-    );
+    const updateWishUseCase = new UpdateWishUseCase(wishRepository);
     const getWishBySessionUseCase = new GetWishBySessionUseCase(wishRepository);
     const getLatestWishesUseCase = new GetLatestWishesUseCase(wishRepository);
+    const getUserWishUseCase = new GetUserWishUseCase(wishRepository);
 
     const wishController = new WishController(
       createWishUseCase,
       updateWishUseCase,
       getWishBySessionUseCase,
-      getLatestWishesUseCase
+      getLatestWishesUseCase,
+      getUserWishUseCase
     );
 
-    return new ExpressServer(wishController);
+    return new ExpressServer(dbConnection, wishController);
   }
 }
