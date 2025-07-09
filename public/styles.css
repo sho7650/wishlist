@@ -163,7 +163,11 @@ textarea {
   position: relative;
   border: 1px solid rgba(0, 0, 0, 0.1);
   transition: transform 0.4s ease-in-out, box-shadow 0.4s ease;
-  animation: sway 7s ease-in-out infinite;
+  animation: var(--sway-name, sway-subtle) /* アニメーション名 (JSから指定) */
+    var(--sway-duration, 8s) /* 時間 (JSから指定) */
+    var(--sway-timing, ease-in-out) /* 緩急 (JSから指定) */
+    var(--sway-delay, 0s) /* 遅延 (JSから指定) */ infinite /* 無限ループ */
+    var(--sway-direction, alternate); /* 進行方向 (JSから指定) */
 }
 
 .wish-card::before {
@@ -215,10 +219,17 @@ textarea {
 }
 
 .wish-card:hover {
-  transform: rotate(0deg) scale(1.05) !important;
+  /* ★ 1. アニメーションを停止する */
+  animation-play-state: paused;
+
+  /* ★ 2. 少し拡大し、回転をリセットしてまっすぐにする */
+  transform: rotate(0deg) scale(1.08) !important; /* !importantで他のtransformを上書き */
+
+  /* ★ 3. 他の短冊より手前に表示させる */
   z-index: 10;
-  box-shadow: 0px 10px 20px rgba(0, 0, 0, 0.3);
-  animation-play-state: paused; /* ホバー中は揺れを止める */
+
+  /* ★ 4. 浮き上がったような影をつける */
+  box-shadow: 0px 15px 30px rgba(0, 0, 0, 0.4);
 }
 
 .wish-content {
