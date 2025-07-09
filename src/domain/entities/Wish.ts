@@ -1,5 +1,6 @@
 export interface WishProps {
   id?: string;
+  userId?: number; // ユーザーIDを追加
   name?: string;
   wish: string;
   createdAt?: Date | string; // 文字列も受け付ける
@@ -11,6 +12,7 @@ export class Wish {
   public static readonly MAX_WISH_LENGTH = 240;
 
   readonly id: string;
+  readonly userId?: number; // ユーザーIDを追加
   readonly name?: string;
   readonly wish: string;
   readonly createdAt: Date;
@@ -35,6 +37,7 @@ export class Wish {
     this.id = props.id || crypto.randomUUID();
     this.name = props.name;
     this.wish = props.wish;
+    this.userId = props.userId;
 
     // createdAtが文字列なら日付オブジェクトに変換
     if (typeof props.createdAt === "string") {

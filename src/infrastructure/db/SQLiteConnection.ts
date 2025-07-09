@@ -130,7 +130,27 @@ export class SQLiteConnection implements DatabaseConnection {
       // 外部キー制約を有効化
       await exec("PRAGMA foreign_keys = ON;");
 
-      // テーブル作成クエリ
+      const createSessionsTable = `
+        CREATE TABLE IF NOT EXISTS sessions (
+          session_id TEXT PRIMARY KEY,
+          wish_id TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (wish_id) REFERENCES wishes(id)
+        );
+      `;
+      // 1. users テーブルを作成
+      //    SERIAL PRIMARY KEY の代わりに INTEGER PRIMARY KEY AUTOINCREMENT を使用
+      const createUsersTable = `
+        CREATE TABLE IF NOT EXISTS users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          google_id TEXT UNIQUE NOT NULL,
+          display_name TEXT NOT NULL,
+          email TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `;
+
+      // 2. wishes テーブルを作成 (もし存在しない場合)
       const createWishesTable = `
         CREATE TABLE IF NOT EXISTS wishes (
           id TEXT PRIMARY KEY,
@@ -140,21 +160,40 @@ export class SQLiteConnection implements DatabaseConnection {
         );
       `;
 
-      const createSessionsTable = `
-        CREATE TABLE IF NOT EXISTS sessions (
-          session_id TEXT PRIMARY KEY,
-          wish_id TEXT NOT NULL,
-          created_at TEXT NOT NULL DEFAULT (datetime('now')),
-          FOREIGN KEY (wish_id) REFERENCES wishes(id)
-        );
+      // 3. wishes テーブルに user_id カラムを追加 (もし存在しない場合)
+      //    SQLiteでは `ADD COLUMN IF NOT EXISTS` は直接サポートされていないため、
+      //    カラムの存在を確認してから追加するアプローチを取るのが堅牢ですが、
+      //    開発初期段階では、DBファイルを削除して再作成するのが最も簡単です。
+      //    ここでは、エラーを無視して実行する単純な方法を示します。
+      const addUserIdToWishesTable = `
+        ALTER TABLE wishes ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
       `;
 
+      // --- 👆 ここまでがテーブル作成・修正クエリ ---
+
+      // クエリの実行
+      await exec(createUsersTable);
       await exec(createWishesTable);
       await exec(createSessionsTable);
+      // user_id カラム追加は、既に存在するとエラーになるため try-catch で囲む
+      try {
+        await exec(addUserIdToWishesTable);
+        console.log('Column "user_id" added to "wishes" table.');
+      } catch (error: any) {
+        // "duplicate column name" エラーは、カラムが既に存在することを意味するので無視してOK
+        if (error.message.includes("duplicate column name")) {
+          // console.log('Column "user_id" already exists in "wishes" table.');
+        } else {
+          // それ以外のエラーは問題なので再スロー
+          throw error;
+        }
+      }
 
-      console.log("SQLite database tables initialized");
+      console.log(
+        "SQLite database tables initialized or updated successfully."
+      );
     } catch (error) {
-      console.error("Error initializing database:", error);
+      console.error("Error initializing/updating SQLite database:", error);
       throw error;
     }
   }
