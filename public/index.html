@@ -82,7 +82,30 @@
         <div id="status-message"></div>
       </div>
     </div>
+    <a href="#" id="how-to-use-link">このサイトの使い方</a>
 
+    <!-- ポップアップ（モーダル）本体 (最初は非表示) -->
+    <div id="modal-container" class="modal-container hidden">
+      <div class="modal-content">
+        <button class="modal-close" id="modal-close-button">&times;</button>
+        <h2>このサイトの使い方</h2>
+        <p>デジタルの短冊に、あなたの願い事を書いてみましょう。</p>
+        <ul>
+          <li>
+            <strong>願い事を見る:</strong>
+            みんなの願い事が短冊として表示されます。下にスクロールすると、過去の願い事を読み込めます。
+          </li>
+          <li>
+            <strong>願い事を投稿する:</strong>
+            右上のボタンから投稿画面へ移動します。「名前（任意）」と「願い事」を入力して投稿してください。
+          </li>
+          <li>
+            <strong>投稿を修正する:</strong>
+            一度投稿すると、あなたのブラウザでは右上のボタンが「投稿を修正する」に変わります。ここからいつでも自分の願い事を書き直せます。
+          </li>
+        </ul>
+      </div>
+    </div>
     <!-- JavaScriptを遅延読み込みせずに即時実行する -->
     <script src="/app.js?v=1"></script>
   </body>
