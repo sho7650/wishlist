@@ -14,7 +14,18 @@ body {
     メイリオ, Osaka, "MS PGothic", arial, helvetica, sans-serif;
   line-height: 1.7;
   color: #333;
-  background: linear-gradient(to bottom, #1a234a, #3a4a8b);
+  min-height: 100vh;
+
+  /* 2. 背景画像を画面いっぱいに広げる設定 */
+  background-image: url("/images/night-sky.jpg");
+  background-size: cover; /* 画像が常に要素全体を覆うように拡大・縮小 */
+  background-position: center; /* 画像を中央に配置 */
+  background-repeat: no-repeat; /* 画像の繰り返しを無効化 */
+  background-attachment: fixed; /* スクロールしても背景画像を固定 */
+
+  /* 3. 画像が読み込めなかった場合の代替背景色 */
+  background-color: #1a234a;
+  /* background: linear-gradient(to bottom, #1a234a, #3a4a8b); */
   padding: 20px;
 }
 
