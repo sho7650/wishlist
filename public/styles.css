@@ -125,15 +125,27 @@ textarea {
   padding: 20px 0;
 }
 
-@keyframes sway {
+@keyframes sway-subtle {
   0% {
-    transform: rotate(1.5deg);
+    transform: rotate(1.2deg);
   }
   50% {
-    transform: rotate(-0.5deg);
+    transform: rotate(-0.6deg);
   }
   100% {
-    transform: rotate(1.5deg);
+    transform: rotate(1.2deg);
+  }
+}
+
+@keyframes sway-wide {
+  0% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2.5deg);
+  }
+  100% {
+    transform: rotate(-2deg);
   }
 }
 
