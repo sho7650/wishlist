@@ -67,7 +67,8 @@ export class KoaWishAdapter {
         ctx.body = { error: "願い事は必須です" };
         return;
       }
-
+      console.log("Session ID:", sessionId);
+      console.log("User ID:", userId);
       // ユースケースに両方のIDを渡す
       await this.updateWishUseCase.execute(name, wish, userId, sessionId);
 
@@ -114,6 +115,7 @@ export class KoaWishAdapter {
       ctx.body = { error: errorMessage };
     }
   };
+  
   public getUserWish = async (ctx: Koa.Context): Promise<void> => {
     try {
       const userId = ctx.state.user?.id;

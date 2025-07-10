@@ -27,10 +27,7 @@ export class CreateWishUseCase {
     await this.wishRepository.save(wish, userId);
 
     const newSessionId = sessionId || this.sessionService.generateSessionId();
-    if (!userId) {
-      // 匿名ユーザーの場合のみセッションと紐付け
-      await this.sessionService.linkSessionToWish(newSessionId, wish.id);
-    }
+    await this.sessionService.linkSessionToWish(newSessionId, wish.id);
 
     return { wish, sessionId: newSessionId };
   }

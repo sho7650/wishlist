@@ -105,6 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await fetch("/api/user/wish");
       const data = await response.json();
+      console.log("Wish data received:", data); // ★このログを確認
       if (data.wish) {
         postWishButton.textContent = "投稿を修正する";
       } else {
@@ -236,7 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
     submitButton.textContent = "投稿する";
 
     try {
-      const response = await fetch("/api/wishes/current");
+      const response = await fetch("/api/user/wish");
       const data = await response.json();
       if (data.wish) {
         console.log("Existing wish found. Entering edit mode.");
