@@ -419,7 +419,7 @@ header > div {
     width: 100%;
     display: flex;
     justify-content: flex-end; /* 右端に寄せる */
-    align-items: center; /* ★ここも中央揃えを追加 */
+    align-items: center; /* ★ここも中央揃えを追加 */ 
     gap: 10px;
   }
 

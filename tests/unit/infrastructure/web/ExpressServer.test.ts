@@ -24,7 +24,11 @@ jest.mock("express", () => {
 
 // 依存する他のモジュールもモック化
 jest.mock("cookie-parser", () => jest.fn(() => "cookieParser middleware"));
-jest.mock("helmet", () => jest.fn(() => "helmet middleware"));
+jest.mock("helmet", () => ({
+  // helmetモジュールが持つべき contentSecurityPolicy プロパティを定義し、
+  // その値をモック関数にする。
+  contentSecurityPolicy: jest.fn(() => "csp middleware"),
+}));
 jest.mock("passport-oauth2", () => {
   return jest.fn().mockImplementation(() => ({
     authenticate: jest.fn(),
@@ -60,9 +64,12 @@ describe("ExpressServer", () => {
 
   it("should setup all required middleware", () => {
     // 期待されるミドルウェアがすべてuseで登録されているか検証
-    expect(mockApp.use).toHaveBeenCalledWith("helmet middleware");
     expect(mockApp.use).toHaveBeenCalledWith("json middleware");
     expect(mockApp.use).toHaveBeenCalledWith("cookieParser middleware");
+
+    const helmet = require("helmet");
+    // helmet.contentSecurityPolicy() が返す "csp middleware" が use に渡されたかを検証
+    expect(mockApp.use).toHaveBeenCalledWith(helmet.contentSecurityPolicy());
   });
 
   it("should setup all required routes", () => {
