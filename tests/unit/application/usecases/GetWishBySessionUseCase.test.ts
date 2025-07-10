@@ -7,6 +7,7 @@ const mockWishRepository = {
   findById: jest.fn(),
   findBySessionId: jest.fn(),
   findLatest: jest.fn(),
+  findByUserId: jest.fn(), // ユーザーIDで探すメソッドを追加
 };
 
 describe("GetWishBySessionUseCase", () => {
