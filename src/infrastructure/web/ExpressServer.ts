@@ -35,7 +35,33 @@ export class ExpressServer implements WebServer {
     );
     this.app.use(passport.initialize());
     this.app.use(passport.session());
-    this.app.use(helmet());
+    this.app.use(
+      helmet.contentSecurityPolicy({
+        directives: {
+          // デフォルトのソースを 'self' に設定
+          defaultSrc: ["'self'"],
+          // スクリプトのソース：自分自身と、もしインラインスクリプトがあれば 'unsafe-inline'
+          scriptSrc: ["'self'"],
+          // スタイルのソース：自分自身と、Google Fonts、インラインスタイル
+          styleSrc: ["'self'", "fonts.googleapis.com", "'unsafe-inline'"],
+          // ★★★ 画像のソース ★★★
+          // 自分自身、data:スキーム、そしてGoogleの画像ドメインを許可
+          imgSrc: ["'self'", "data:", "lh3.googleusercontent.com"],
+          // 接続元
+          connectSrc: ["'self'"],
+          // フォントのソース
+          fontSrc: ["'self'", "fonts.gstatic.com"],
+          // オブジェクトのソース
+          objectSrc: ["'none'"],
+          // メディアのソース
+          mediaSrc: ["'self'"],
+          // フレームのソース
+          frameSrc: ["'none'"],
+          // CSP違反のレポート先(任意)
+          // reportUri: '/csp-violation-report-endpoint',
+        },
+      })
+    );
     this.app.use(express.json());
     this.app.use(express.static(path.join(__dirname, "../../../public")));
     this.app.use(cookieParser());

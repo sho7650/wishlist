@@ -389,6 +389,23 @@ textarea {
   color: #333;
 }
 
+/* ヘッダー内のボタンとアイコンを囲むdivのスタイル */
+header > div {
+  display: flex;
+  align-items: center; /* ★アイコンとボタンを垂直方向中央揃えにする */
+  gap: 10px;
+}
+
+/* アバターアイコンのスタイル */
+.avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%; /* 円形にする */
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  object-fit: cover; /* 画像が円の中に綺麗に収まるようにする */
+}
+
 /* 画面幅が768px以下の場合に適用されるスタイル */
 @media (max-width: 768px) {
   /* ヘッダーのレイアウトを縦並びに変更 */
@@ -399,10 +416,11 @@ textarea {
   }
 
   header > div {
-    width: 100%; /* 横幅を親要素いっぱいにする */
-    display: flex; /* 中のボタンをflexboxで制御 */
-    justify-content: flex-end; /* ボタンを右端に寄せる */
-    gap: 10px; /* ボタン同士の間に隙間を作る */
+    width: 100%;
+    display: flex;
+    justify-content: flex-end; /* 右端に寄せる */
+    align-items: center; /* ★ここも中央揃えを追加 */ 
+    gap: 10px;
   }
 
   /* フォームコンテナの余白を少し減らす */

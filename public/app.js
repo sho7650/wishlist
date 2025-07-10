@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const howToUseLink = document.getElementById("how-to-use-link");
   const modalContainer = document.getElementById("modal-container");
   const modalCloseButton = document.getElementById("modal-close-button");
+  const userAvatar = document.getElementById("user-avatar");
 
   // --- アプリケーションの状態管理 ---
   let isEditMode = false;
@@ -73,21 +74,33 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Checking auth state...");
       const response = await fetch("/api/user");
       console.log("Response from /api/user:", response.status, response.ok);
+      const user =
+        response.ok && response.headers.get("content-length") !== "0"
+          ? await response.json()
+          : null;
 
-      if (response.ok && response.headers.get("content-length") !== "0") {
-        const user = await response.json();
+      if (userAvatar && loginButton && postWishButton && logoutButton) {
+        // const user = await response.json();
         console.log("User data received:", user); // ★このログを確認
+        console.log("userAvatar element:", userAvatar);
 
         // ログイン済み
         loginButton.classList.add("hidden");
         postWishButton.classList.remove("hidden");
         logoutButton.classList.remove("hidden");
         updatePostButtonState();
+
+        if (user.picture) {
+          userAvatar.src = user.picture;
+          userAvatar.alt = `${user.display_name}のアバター`;
+          userAvatar.classList.remove("hidden");
+        }
       } else {
         // 未ログイン
         loginButton.classList.remove("hidden");
         postWishButton.classList.add("hidden");
         logoutButton.classList.add("hidden");
+        userAvatar.classList.add("hidden");
       }
       // 常にボタンの文言を更新
       updatePostButtonState();
