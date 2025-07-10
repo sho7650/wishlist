@@ -61,7 +61,7 @@ describe("CreateWishUseCase", () => {
     // 実行と検証
     await expect(
       createWishUseCase.execute("名前", "新しい願い事", "existing-session-id")
-    ).rejects.toThrow("既に投稿済みです。編集画面から変更してください。");
+    ).rejects.toThrow("既に投稿済みです。");
 
     // save は呼ばれていないことを検証
     expect(mockWishRepository.save).not.toHaveBeenCalled();

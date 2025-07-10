@@ -25,17 +25,24 @@ jest.mock("express", () => {
 // 依存する他のモジュールもモック化
 jest.mock("cookie-parser", () => jest.fn(() => "cookieParser middleware"));
 jest.mock("helmet", () => jest.fn(() => "helmet middleware"));
+jest.mock("passport-oauth2", () => {
+  return jest.fn().mockImplementation(() => ({
+    authenticate: jest.fn(),
+    clientID: "mockClientID", // Provide a mock clientID
+  }));
+});
 
 // Controllerのモック
 class MockWishController extends WishController {
   constructor() {
     // superにはダミーのモックを渡す
-    super({} as any, {} as any, {} as any, {} as any);
+    super({} as any, {} as any, {} as any, {} as any, {} as any);
     // メソッドをjestのモック関数で上書き
     this.createWish = jest.fn();
     this.updateWish = jest.fn();
     this.getCurrentWish = jest.fn();
     this.getLatestWishes = jest.fn();
+    this.getUserWish = jest.fn();
   }
 }
 
@@ -47,7 +54,8 @@ describe("ExpressServer", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockWishController = new MockWishController();
-    server = new ExpressServer(mockWishController);
+    const mockDbConnection = {}; // Add a mock or actual dbConnection object
+    server = new ExpressServer(mockDbConnection, mockWishController);
   });
 
   it("should setup all required middleware", () => {
@@ -61,10 +69,12 @@ describe("ExpressServer", () => {
     // 期待されるルートがすべて正しいメソッドとハンドラで登録されているか検証
     expect(mockApp.post).toHaveBeenCalledWith(
       "/api/wishes",
+      expect.any(Function), // ensureAuth middleware
       mockWishController.createWish
     );
     expect(mockApp.put).toHaveBeenCalledWith(
       "/api/wishes",
+      expect.any(Function), // ensureAuth middleware
       mockWishController.updateWish
     );
     expect(mockApp.get).toHaveBeenCalledWith(

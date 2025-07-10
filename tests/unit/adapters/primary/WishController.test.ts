@@ -4,6 +4,7 @@ import { CreateWishUseCase } from "../../../../src/application/usecases/CreateWi
 import { UpdateWishUseCase } from "../../../../src/application/usecases/UpdateWishUseCase";
 import { GetWishBySessionUseCase } from "../../../../src/application/usecases/GetWishBySessionUseCase";
 import { GetLatestWishesUseCase } from "../../../../src/application/usecases/GetLatestWishesUseCase";
+import { GetUserWishUseCase } from "../../../../src/application/usecases/GetUserWishUseCase";
 
 // Express のリクエスト・レスポンスをモック
 const mockRequest = () => {
@@ -39,6 +40,10 @@ const mockGetLatestWishesUseCase = {
   execute: jest.fn(),
 };
 
+const mockGetUserWishUseCase = {
+  execute: jest.fn(),
+};
+
 describe("WishController", () => {
   let wishController: WishController;
 
@@ -49,7 +54,8 @@ describe("WishController", () => {
       mockCreateWishUseCase as unknown as CreateWishUseCase,
       mockUpdateWishUseCase as unknown as UpdateWishUseCase,
       mockGetWishBySessionUseCase as unknown as GetWishBySessionUseCase,
-      mockGetLatestWishesUseCase as unknown as GetLatestWishesUseCase
+      mockGetLatestWishesUseCase as unknown as GetLatestWishesUseCase,
+      mockGetUserWishUseCase as unknown as GetUserWishUseCase
     );
   });
 
@@ -80,6 +86,7 @@ describe("WishController", () => {
       expect(mockCreateWishUseCase.execute).toHaveBeenCalledWith(
         "テスト太郎",
         "テストの願い事",
+        undefined,
         undefined
       );
       expect(res.cookie).toHaveBeenCalledWith(
@@ -134,7 +141,8 @@ describe("WishController", () => {
       expect(mockCreateWishUseCase.execute).toHaveBeenCalledWith(
         "テスト太郎",
         "テストの願い事",
-        "existing-session-id"
+        "existing-session-id",
+        undefined
       );
       expect(res.cookie).toHaveBeenCalledWith(
         "sessionId",
@@ -178,9 +186,10 @@ describe("WishController", () => {
 
       // 検証
       expect(mockUpdateWishUseCase.execute).toHaveBeenCalledWith(
-        "test-session-id",
         "新しい名前",
-        "新しい願い事"
+        "新しい願い事",
+        undefined,
+        "test-session-id"
       );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ message: "更新しました" });

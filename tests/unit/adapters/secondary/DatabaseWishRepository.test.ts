@@ -24,17 +24,18 @@ describe("DatabaseWishRepository", () => {
         name: "テスト太郎",
         wish: "テストの願い事",
         createdAt: new Date("2025-01-01"),
+        userId: 1,
       });
 
       mockDbConnection.query.mockResolvedValue({ rows: [], rowCount: 1 });
 
       // 実行
-      await repository.save(wish);
+      await repository.save(wish, wish.userId);
 
       // 検証
       expect(mockDbConnection.query).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO wishes"),
-        [wish.id, wish.name, wish.wish, wish.createdAt]
+        [wish.id, wish.name, wish.wish, wish.createdAt, wish.userId]
       );
     });
 
@@ -44,17 +45,18 @@ describe("DatabaseWishRepository", () => {
         id: "123",
         wish: "テストの願い事",
         createdAt: new Date("2025-01-01"),
+        userId: 1, // ユーザーIDを追加
       });
 
       mockDbConnection.query.mockResolvedValue({ rows: [], rowCount: 1 });
 
       // 実行
-      await repository.save(wish);
+      await repository.save(wish, wish.userId);
 
       // 検証
       expect(mockDbConnection.query).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO wishes"),
-        [wish.id, null, wish.wish, wish.createdAt]
+        [wish.id, null, wish.wish, wish.createdAt, wish.userId]
       );
     });
   });
@@ -67,6 +69,7 @@ describe("DatabaseWishRepository", () => {
         name: "テスト太郎",
         wish: "テストの願い事",
         created_at: new Date("2025-01-01"),
+        user_id: 1, // ユーザーIDを追加
       };
 
       mockDbConnection.query.mockResolvedValue({

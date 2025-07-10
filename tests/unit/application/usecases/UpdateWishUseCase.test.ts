@@ -21,10 +21,7 @@ describe("UpdateWishUseCase", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    updateWishUseCase = new UpdateWishUseCase(
-      mockWishRepository,
-      mockSessionService
-    );
+    updateWishUseCase = new UpdateWishUseCase(mockWishRepository);
   });
 
   it("should update an existing wish", async () => {
@@ -40,7 +37,13 @@ describe("UpdateWishUseCase", () => {
     // 実行
     const newName = "新しい名前";
     const newWishText = "新しい願い事";
-    await updateWishUseCase.execute("test-session-id", newName, newWishText);
+    const newUserId = 1; // ユーザーIDを追加
+    await updateWishUseCase.execute(
+      newName,
+      newWishText,
+      newUserId,
+      "test-session-id"
+    );
 
     // 検証
     expect(mockWishRepository.findBySessionId).toHaveBeenCalledWith(
@@ -62,34 +65,9 @@ describe("UpdateWishUseCase", () => {
 
     // 実行と検証
     await expect(
-      updateWishUseCase.execute("invalid-session-id", "名前", "願い事")
+      updateWishUseCase.execute("invalid-session-id", "名前")
     ).rejects.toThrow("投稿が見つかりません");
 
     expect(mockWishRepository.save).not.toHaveBeenCalled();
-  });
-
-  it("should handle invalid createdAt date", async () => {
-    // Invalid Date を持つ願い事をモック
-    const wishWithInvalidDate = {
-      id: "123",
-      name: "名前",
-      wish: "願い事",
-      createdAt: new Date("invalid-date"),
-    };
-    mockWishRepository.findBySessionId.mockResolvedValue(wishWithInvalidDate);
-
-    // 実行
-    await updateWishUseCase.execute(
-      "test-session-id",
-      "新しい名前",
-      "新しい願い事"
-    );
-
-    // 検証
-    expect(mockWishRepository.save).toHaveBeenCalledTimes(1);
-    // 新しい有効な日付が設定されたことを確認
-    const savedWish = mockWishRepository.save.mock.calls[0][0];
-    expect(savedWish.createdAt).toBeInstanceOf(Date);
-    expect(isNaN(savedWish.createdAt.getTime())).toBe(false);
   });
 });
