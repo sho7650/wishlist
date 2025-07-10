@@ -388,3 +388,37 @@ textarea {
 .modal-close:hover {
   color: #333;
 }
+
+/* 画面幅が768px以下の場合に適用されるスタイル */
+@media (max-width: 768px) {
+  /* ヘッダーのレイアウトを縦並びに変更 */
+  header {
+    flex-direction: column; /* 要素を縦に並べる */
+    align-items: flex-start; /* 左揃えにする */
+    gap: 20px; /* タイトルとボタンの間に余白を追加 */
+  }
+
+  header > div {
+    width: 100%; /* 横幅を親要素いっぱいにする */
+    display: flex; /* 中のボタンをflexboxで制御 */
+    justify-content: flex-end; /* ボタンを右端に寄せる */
+    gap: 10px; /* ボタン同士の間に隙間を作る */
+  }
+
+  /* フォームコンテナの余白を少し減らす */
+  .container {
+    padding: 20px;
+  }
+
+  /* 短冊の縦書きの文字サイズを少し小さくして見やすくする */
+  .wish-content {
+    font-size: 16px;
+  }
+
+  /* 「使い方」リンクの位置を調整 */
+  #how-to-use-link {
+    bottom: 10px;
+    right: 10px;
+    font-size: 12px;
+  }
+}
