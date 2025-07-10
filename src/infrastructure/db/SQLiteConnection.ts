@@ -146,6 +146,7 @@ export class SQLiteConnection implements DatabaseConnection {
           google_id TEXT UNIQUE NOT NULL,
           display_name TEXT NOT NULL,
           email TEXT,
+          picture TEXT,          
           created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
       `;

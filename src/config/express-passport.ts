@@ -56,6 +56,10 @@ export function configureExpressPassport(db: DatabaseConnection) {
         console.log("Profile received:", profile);
         console.log("Type of profile object:", typeof profile);
         try {
+          const pictureUrl =
+            profile.photos && profile.photos.length > 0
+              ? profile.photos[0].value
+              : null;
           // 1. GoogleプロファイルIDで既存ユーザーを探す
           const currentUserResult = await db.query(
             "SELECT * FROM users WHERE google_id = $1",
@@ -65,16 +69,25 @@ export function configureExpressPassport(db: DatabaseConnection) {
           if (currentUserResult.rows.length > 0) {
             // 2. ユーザーが存在する場合
             console.log("User already exists:", currentUserResult.rows[0]);
+            const existingUser = currentUserResult.rows[0];
+            const updateUserQuery =
+              "UPDATE users SET display_name = $1, picture = $2 WHERE google_id = $3 RETURNING *";
+            const updatedUserResult = await db.query(updateUserQuery, [
+              profile.displayName,
+              pictureUrl,
+              profile.id,
+            ]);
             done(null, currentUserResult.rows[0]);
           } else {
             // 3. ユーザーが存在しない場合、新しく作成する
             console.log("Creating new user with Google profile:", profile.id);
             const newUserQuery =
-              "INSERT INTO users (google_id, display_name, email) VALUES (?, ?, ?)";
+              "INSERT INTO users (google_id, display_name, email, picture) VALUES (?, ?, ?, ?)";
             const newUserResult = await db.query(newUserQuery, [
               profile.id,
               profile.displayName,
               profile.emails ? profile.emails[0].value : null,
+              pictureUrl,
             ]);
             console.log("New user created:", newUserResult.rows[0]);
             done(null, newUserResult.rows[0]);

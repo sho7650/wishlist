@@ -34,30 +34,48 @@ export function configureKoaPassport(db: DatabaseConnection) {
         callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
       },
       async (accessToken, refreshToken, profile, done) => {
+        console.log("--- Google Strategy Callback ---");
+        console.log("Profile received:", profile);
+        console.log("Type of profile object:", typeof profile);
         try {
+          const pictureUrl =
+            profile.photos && profile.photos.length > 0
+              ? profile.photos[0].value
+              : null;
           const existingUserResult = await db.query(
             "SELECT * FROM users WHERE google_id = $1",
             [profile.id]
           );
 
           if (existingUserResult.rows.length > 0) {
+            console.log("User already exists:", existingUserResult.rows[0]);
+            const existingUser = existingUserResult.rows[0];
+            const updateUserQuery =
+              "UPDATE users SET display_name = $1, picture = $2 WHERE google_id = $3 RETURNING *";
+            const updatedUserResult = await db.query(updateUserQuery, [
+              profile.displayName,
+              pictureUrl,
+              profile.id,
+            ]);
             return done(null, existingUserResult.rows[0]);
           }
 
           const newUserQuery =
-            "INSERT INTO users (google_id, display_name, email) VALUES ($1, $2, $3) RETURNING *";
+            "INSERT INTO users (google_id, display_name, email, picture) VALUES ($1, $2, $3, $4) RETURNING *";
 
           console.log("Executing SQL:", newUserQuery);
           console.log(
             "With values:",
             profile.id,
             profile.displayName,
-            profile.emails ? profile.emails[0].value : null
+            profile.emails ? profile.emails[0].value : null,
+            pictureUrl
           );
           const newUserResult = await db.query(newUserQuery, [
             profile.id,
             profile.displayName,
             profile.emails ? profile.emails[0].value : null,
+            pictureUrl,
           ]);
 
           return done(null, newUserResult.rows[0]);
