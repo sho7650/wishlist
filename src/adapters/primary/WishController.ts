@@ -53,6 +53,8 @@ export class WishController {
       const { name, wish } = req.body;
       const userId = req.user?.id;
       const sessionId = req.cookies.sessionId;
+      console.log("Session ID:", sessionId);
+      console.log("User ID:", userId);
 
       if (!userId && !sessionId) {
         res.status(401).json({ error: "編集権限がありません。" });

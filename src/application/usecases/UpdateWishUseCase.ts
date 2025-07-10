@@ -40,6 +40,6 @@ export class UpdateWishUseCase {
     // 4. 見つかった願い事を更新する
     //    ログインユーザーの投稿を更新する場合、userIdも一緒に保存する
     const updatedWish = wishToUpdate.update(name, wishText);
-    await this.wishRepository.save(updatedWish, wishToUpdate.userId);
+    await this.wishRepository.save(updatedWish, userId);
   }
 }
