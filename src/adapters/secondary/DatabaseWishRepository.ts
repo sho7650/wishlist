@@ -8,28 +8,44 @@ interface WishRow {
   name: string | null;
   wish: string;
   created_at: string | Date; // 文字列か日付を許容
+  user_id: number | null;
 }
 
 export class DatabaseWishRepository implements WishRepository {
   constructor(private db: DatabaseConnection) {}
 
-  async save(wish: Wish): Promise<void> {
+  async save(wish: Wish, userId?: number): Promise<void> {
+    console.log("Saving wish:", wish);
+    console.log("User ID:", userId);
     // UPSERTクエリ (DBタイプに関わらず、ファクトリで適切に変換される)
     const query = `
-    INSERT INTO wishes (id, name, wish, created_at)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (id) 
-    DO UPDATE SET name = $2, wish = $3, created_at = $4
-  `;
-
-    // created_at が常に最新の状態になるように、更新時も現在の日時を使用
-    // または wish.createdAt を使用してオリジナルの作成日時を保持
+      INSERT INTO wishes (id, name, wish, created_at, user_id)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (id) 
+      DO UPDATE SET name = $2, wish = $3, user_id = $5
+    `;
     await this.db.query(query, [
       wish.id,
       wish.name || null,
       wish.wish,
-      wish.createdAt, // この値が確実に存在することを確認
+      wish.createdAt,
+      userId || null, // ユーザーIDがなければNULL
     ]);
+  }
+
+  async findByUserId(userId: number): Promise<Wish | null> {
+    const result = await this.db.query(
+      "SELECT * FROM wishes WHERE user_id = $1 LIMIT 1",
+      [userId]
+    );
+    if (result.rows.length === 0) return null;
+    return new Wish({
+      id: result.rows[0].id,
+      name: result.rows[0].name,
+      wish: result.rows[0].wish,
+      createdAt: result.rows[0].created_at,
+      userId: result.rows[0].user_id,
+    });
   }
 
   async findById(id: string): Promise<Wish | null> {
@@ -47,6 +63,7 @@ export class DatabaseWishRepository implements WishRepository {
       name: row.name || undefined,
       wish: row.wish,
       createdAt: this.parseDate(row.created_at),
+      userId: row.user_id || undefined, // ユーザーIDがなければundefined
     });
   }
 
@@ -78,6 +95,7 @@ export class DatabaseWishRepository implements WishRepository {
       name: row.name || undefined,
       wish: row.wish,
       createdAt: createdAt,
+      userId: row.user_id || undefined,
     });
   }
 
@@ -94,6 +112,7 @@ export class DatabaseWishRepository implements WishRepository {
           name: row.name || undefined,
           wish: row.wish,
           createdAt: this.parseDate(row.created_at),
+          userId: row.user_id || undefined, // ユーザーIDがなければundefined
         })
     );
   }

@@ -27,9 +27,22 @@
       <div id="viewer-container" class="container">
         <header>
           <h1>みんなの願い事</h1>
-          <button id="new-wish-button" class="primary-button">
-            願い事を投稿する
-          </button>
+          <div>
+            <!-- 認証済みの場合に表示 -->
+            <button id="post-wish-button" class="primary-button hidden">
+              願い事を投稿する
+            </button>
+            <a
+              href="/auth/logout"
+              id="logout-button"
+              class="secondary-button hidden"
+              >ログアウト</a
+            >
+            <!-- 未認証の場合に表示 -->
+            <a href="/auth/google" id="login-button" class="primary-button"
+              >Googleでログイン</a
+            >
+          </div>
         </header>
 
         <div id="wishes-list" class="wishes-grid"></div>
@@ -96,12 +109,12 @@
             みんなの願い事が短冊として表示されます。下にスクロールすると、過去の願い事を読み込めます。
           </li>
           <li>
-            <strong>願い事を投稿する:</strong>
-            右上のボタンから投稿画面へ移動します。「名前（任意）」と「願い事」を入力して投稿してください。
+            <strong>投稿・編集する:</strong>
+            右上の「Googleでログイン」ボタンからログインしてください。ログインすると、「願い事を投稿する」ボタンが表示されます。投稿した願い事はいつでも修正できます。
           </li>
           <li>
-            <strong>投稿を修正する:</strong>
-            一度投稿すると、あなたのブラウザでは右上のボタンが「投稿を修正する」に変わります。ここからいつでも自分の願い事を書き直せます。
+            <strong>ログアウト:</strong>
+            右上の「ログアウト」ボタンを押すと、いつでもログアウトできます。
           </li>
         </ul>
       </div>

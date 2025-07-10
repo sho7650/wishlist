@@ -1,46 +1,45 @@
-import { WishRepository } from "../../domain/repositories/WishRepository";
-import { SessionService } from "../../ports/output/SessionService";
 import { Wish } from "../../domain/entities/Wish";
+import { WishRepository } from "../../domain/repositories/WishRepository";
 
+/**
+ * ログインユーザー、または匿名セッションユーザーの願い事を更新するユースケース
+ */
 export class UpdateWishUseCase {
-  constructor(
-    private wishRepository: WishRepository,
-    private sessionService: SessionService
-  ) {}
+  constructor(private wishRepository: WishRepository) {}
 
+  /**
+   * @param name 新しい名前
+   * @param wishText 新しい願い事
+   * @param userId ログインしているユーザーのID (オプショナル)
+   * @param sessionId 匿名のユーザーセッションID (オプショナル)
+   */
   async execute(
-    sessionId: string,
     name: string | undefined,
-    wishText: string
+    wishText: string,
+    userId?: number,
+    sessionId?: string
   ): Promise<void> {
-    // セッションIDから投稿を検索
-    const wish = await this.wishRepository.findBySessionId(sessionId);
-    if (!wish) {
-      throw new Error("投稿が見つかりません。");
+    let wishToUpdate: Wish | null = null;
+
+    // 1. まずログインユーザーとして、自分の投稿を探す
+    if (userId) {
+      wishToUpdate = await this.wishRepository.findByUserId(userId);
     }
 
-    console.log("Original wish:", wish);
-
-    // createdAtが無効な場合、現在時刻を設定
-    if (!wish.createdAt || isNaN(wish.createdAt.getTime())) {
-      console.warn("Invalid createdAt detected, using a new date instance");
-      // createdAtが読み取り専用のため、新しいインスタンスを作成
-      const fixedWish = new Wish({
-        id: wish.id,
-        name: wish.name,
-        wish: wish.wish,
-        createdAt: new Date(),
-      });
-
-      const updatedWish = fixedWish.update(name, wishText);
-      console.log("Fixed wish:", updatedWish);
-      await this.wishRepository.save(updatedWish);
-      return;
+    // 2. ログインしていない、またはログインユーザーの投稿が見つからない場合、
+    //    セッションIDで匿名の投稿を探す
+    if (!wishToUpdate && sessionId) {
+      wishToUpdate = await this.wishRepository.findBySessionId(sessionId);
     }
 
-    // 通常の更新処理
-    const updatedWish = wish.update(name, wishText);
-    console.log("Updated wish:", updatedWish);
-    await this.wishRepository.save(updatedWish);
+    // 3. 更新対象の願い事が見つからなかった場合
+    if (!wishToUpdate) {
+      throw new Error("更新対象の投稿が見つかりませんでした。");
+    }
+
+    // 4. 見つかった願い事を更新する
+    //    ログインユーザーの投稿を更新する場合、userIdも一緒に保存する
+    const updatedWish = wishToUpdate.update(name, wishText);
+    await this.wishRepository.save(updatedWish, userId);
   }
 }

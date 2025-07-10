@@ -3,13 +3,15 @@ import { CreateWishUseCase } from "../../application/usecases/CreateWishUseCase"
 import { UpdateWishUseCase } from "../../application/usecases/UpdateWishUseCase";
 import { GetWishBySessionUseCase } from "../../application/usecases/GetWishBySessionUseCase";
 import { GetLatestWishesUseCase } from "../../application/usecases/GetLatestWishesUseCase";
+import { GetUserWishUseCase } from "../../application/usecases/GetUserWishUseCase";
 
 export class WishController {
   constructor(
     private createWishUseCase: CreateWishUseCase,
     private updateWishUseCase: UpdateWishUseCase,
     private getWishBySessionUseCase: GetWishBySessionUseCase,
-    private getLatestWishesUseCase: GetLatestWishesUseCase
+    private getLatestWishesUseCase: GetLatestWishesUseCase,
+    private getUserWishUseCase: GetUserWishUseCase
   ) {}
 
   public createWish = async (req: Request, res: Response): Promise<void> => {
@@ -22,12 +24,13 @@ export class WishController {
       }
 
       const sessionId = req.cookies.sessionId;
-
+      const userId = req.user?.id;
       // 投稿を作成
       const result = await this.createWishUseCase.execute(
         name,
         wish,
-        sessionId
+        sessionId,
+        userId
       );
 
       // Cookieを設定
@@ -48,19 +51,23 @@ export class WishController {
   public updateWish = async (req: Request, res: Response): Promise<void> => {
     try {
       const { name, wish } = req.body;
+      const userId = req.user?.id;
       const sessionId = req.cookies.sessionId;
+      console.log("Session ID:", sessionId);
+      console.log("User ID:", userId);
 
-      if (!sessionId) {
-        res.status(401).json({ error: "編集権限がありません" });
+      if (!userId && !sessionId) {
+        res.status(401).json({ error: "編集権限がありません。" });
         return;
       }
-
       if (!wish) {
-        res.status(400).json({ error: "願い事は必須です" });
+        res.status(400).json({ error: "願い事は必須です。" });
         return;
       }
 
-      await this.updateWishUseCase.execute(sessionId, name, wish);
+      // ユースケースに両方のIDを渡す
+      await this.updateWishUseCase.execute(name, wish, userId, sessionId);
+
       res.status(200).json({ message: "更新しました" });
     } catch (error: unknown) {
       const errorMessage =
@@ -100,6 +107,21 @@ export class WishController {
 
       const wishes = await this.getLatestWishesUseCase.execute(limit, offset);
       res.status(200).json({ wishes });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
+      res.status(400).json({ error: errorMessage });
+    }
+  };
+
+  public getUserWish = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      const sessionId = req.cookies.sessionId;
+
+      const wish = await this.getUserWishUseCase.execute(userId, sessionId);
+
+      res.status(200).json({ wish });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";

@@ -14,6 +14,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusMessage = document.getElementById("status-message");
   const wishesList = document.getElementById("wishes-list");
   const loadingIndicator = document.getElementById("loading-indicator");
+  const postWishButton = document.getElementById("post-wish-button");
+  const loginButton = document.getElementById("login-button");
+  const logoutButton = document.getElementById("logout-button");
 
   // 👇 --- ポップアップ関連の要素を追加 ---
   const howToUseLink = document.getElementById("how-to-use-link");
@@ -64,19 +67,53 @@ document.addEventListener("DOMContentLoaded", () => {
     element.style.transformOrigin = `center ${Math.random() * 20 - 10}px`;
   }
 
+  // --- ★ ユーザーの認証状態を確認し、UIを更新する関数 ---
+  async function checkAuthState() {
+    try {
+      console.log("Checking auth state...");
+      const response = await fetch("/api/user");
+      console.log("Response from /api/user:", response.status, response.ok);
+
+      if (response.ok && response.headers.get("content-length") !== "0") {
+        const user = await response.json();
+        console.log("User data received:", user); // ★このログを確認
+
+        // ログイン済み
+        loginButton.classList.add("hidden");
+        postWishButton.classList.remove("hidden");
+        logoutButton.classList.remove("hidden");
+        updatePostButtonState();
+      } else {
+        // 未ログイン
+        loginButton.classList.remove("hidden");
+        postWishButton.classList.add("hidden");
+        logoutButton.classList.add("hidden");
+      }
+      // 常にボタンの文言を更新
+      updatePostButtonState();
+    } catch (error) {
+      console.error("Error checking auth state:", error);
+      // エラー時も未ログイン状態として表示
+      loginButton.classList.remove("hidden");
+      postWishButton.classList.add("hidden");
+      logoutButton.classList.add("hidden");
+    }
+  }
+
   // 👇 --- ボタンの文言を更新する関数を新規作成 ---
   async function updatePostButtonState() {
     try {
-      const response = await fetch("/api/wishes/current");
+      const response = await fetch("/api/user/wish");
       const data = await response.json();
+      console.log("Wish data received:", data); // ★このログを確認
       if (data.wish) {
-        newWishButton.textContent = "投稿を修正する";
+        postWishButton.textContent = "投稿を修正する";
       } else {
-        newWishButton.textContent = "願い事を投稿する";
+        postWishButton.textContent = "願い事を投稿する";
       }
     } catch (error) {
       console.error("Could not check user status:", error);
-      newWishButton.textContent = "願い事を投稿する"; // エラー時はデフォルト
+      postWishButton.textContent = "願い事を投稿する"; // エラー時はデフォルト
     }
   }
 
@@ -192,7 +229,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- イベントリスナーの設定 ---
 
   // 「願い事を投稿する」ボタン
-  newWishButton.addEventListener("click", async () => {
+  postWishButton.addEventListener("click", async () => {
     console.log("New Wish Button clicked.");
     wishForm.reset();
     isEditMode = false;
@@ -200,7 +237,7 @@ document.addEventListener("DOMContentLoaded", () => {
     submitButton.textContent = "投稿する";
 
     try {
-      const response = await fetch("/api/wishes/current");
+      const response = await fetch("/api/user/wish");
       const data = await response.json();
       if (data.wish) {
         console.log("Existing wish found. Entering edit mode.");
@@ -308,5 +345,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- アプリケーションの初期化 ---
   loadWishes(0, false);
-  updatePostButtonState();
+  checkAuthState();
 });
