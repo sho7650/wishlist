@@ -157,7 +157,8 @@ export class SQLiteConnection implements DatabaseConnection {
           id TEXT PRIMARY KEY,
           name TEXT,
           wish TEXT NOT NULL,
-          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          support_count INTEGER NOT NULL DEFAULT 0
         );
       `;
 
@@ -170,12 +171,45 @@ export class SQLiteConnection implements DatabaseConnection {
         ALTER TABLE wishes ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
       `;
 
+      // 4. support_count カラムを追加 (もし存在しない場合)
+      const addSupportCountToWishesTable = `
+        ALTER TABLE wishes ADD COLUMN support_count INTEGER NOT NULL DEFAULT 0;
+      `;
+
+      // 5. supports テーブルを作成 (応援の記録)
+      const createSupportsTable = `
+        CREATE TABLE IF NOT EXISTS supports (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          wish_id TEXT NOT NULL,
+          session_id TEXT,
+          user_id INTEGER,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          FOREIGN KEY (wish_id) REFERENCES wishes(id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+        );
+      `;
+
+      // 6. supportsテーブルに複合インデックスを追加
+      const createSupportsIndex = `
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_session 
+        ON supports(wish_id, session_id) WHERE session_id IS NOT NULL;
+      `;
+      
+      const createSupportsUserIndex = `
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_user 
+        ON supports(wish_id, user_id) WHERE user_id IS NOT NULL;
+      `;
+
       // --- 👆 ここまでがテーブル作成・修正クエリ ---
 
       // クエリの実行
       await exec(createUsersTable);
       await exec(createWishesTable);
       await exec(createSessionsTable);
+      await exec(createSupportsTable);
+      await exec(createSupportsIndex);
+      await exec(createSupportsUserIndex);
+      
       // user_id カラム追加は、既に存在するとエラーになるため try-catch で囲む
       try {
         await exec(addUserIdToWishesTable);
@@ -186,6 +220,18 @@ export class SQLiteConnection implements DatabaseConnection {
           // console.log('Column "user_id" already exists in "wishes" table.');
         } else {
           // それ以外のエラーは問題なので再スロー
+          throw error;
+        }
+      }
+
+      // support_count カラム追加も同様
+      try {
+        await exec(addSupportCountToWishesTable);
+        console.log('Column "support_count" added to "wishes" table.');
+      } catch (error: any) {
+        if (error.message.includes("duplicate column name")) {
+          // console.log('Column "support_count" already exists in "wishes" table.');
+        } else {
           throw error;
         }
       }
@@ -220,13 +266,23 @@ export class SQLiteConnection implements DatabaseConnection {
 
     // 3. ON CONFLICT ... DO UPDATE を REPLACE INTO に変換するロジック
     if (sqliteQuery.includes("ON CONFLICT")) {
-      // INSERT文をシンプルなINSERT OR REPLACEに変換
-      sqliteQuery = sqliteQuery.replace(
-        /INSERT INTO/i,
-        "INSERT OR REPLACE INTO"
-      );
-      // ON CONFLICT以降の部分を削除
-      sqliteQuery = sqliteQuery.replace(/\s+ON CONFLICT.*DO UPDATE.*$/is, "");
+      if (sqliteQuery.includes("DO NOTHING")) {
+        // INSERT文をシンプルなINSERT OR IGNOREに変換
+        sqliteQuery = sqliteQuery.replace(
+          /INSERT INTO/i,
+          "INSERT OR IGNORE INTO"
+        );
+        // ON CONFLICT以降の部分を削除
+        sqliteQuery = sqliteQuery.replace(/\s+ON CONFLICT.*DO NOTHING.*$/is, "");
+      } else {
+        // INSERT文をシンプルなINSERT OR REPLACEに変換
+        sqliteQuery = sqliteQuery.replace(
+          /INSERT INTO/i,
+          "INSERT OR REPLACE INTO"
+        );
+        // ON CONFLICT以降の部分を削除
+        sqliteQuery = sqliteQuery.replace(/\s+ON CONFLICT.*DO UPDATE.*$/is, "");
+      }
     }
     // 4. OFFSETの処理（SQLiteでも同じ構文だが、念のため）
     if (sqliteQuery.includes("OFFSET")) {

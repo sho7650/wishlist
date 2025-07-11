@@ -111,6 +111,11 @@ export class KoaServer implements WebServer {
     this.router.get("/api/wishes/current", this.koaWishAdapter.getCurrentWish);
     this.router.get("/api/wishes", this.koaWishAdapter.getLatestWishes);
     this.router.get("/api/user/wish", this.koaWishAdapter.getUserWish);
+    
+    // 応援機能のルート
+    this.router.post("/api/wishes/:wishId/support", this.koaWishAdapter.supportWish);
+    this.router.delete("/api/wishes/:wishId/support", this.koaWishAdapter.unsupportWish);
+    this.router.get("/api/wishes/:wishId/support", this.koaWishAdapter.getWishSupportStatus);
 
     this.app.use(this.router.routes()).use(this.router.allowedMethods());
 

@@ -5,6 +5,9 @@ import { UpdateWishUseCase } from "../../application/usecases/UpdateWishUseCase"
 import { GetWishBySessionUseCase } from "../../application/usecases/GetWishBySessionUseCase";
 import { GetLatestWishesUseCase } from "../../application/usecases/GetLatestWishesUseCase";
 import { GetUserWishUseCase } from "../../application/usecases/GetUserWishUseCase";
+import { SupportWishUseCase } from "../../application/usecases/SupportWishUseCase";
+import { UnsupportWishUseCase } from "../../application/usecases/UnsupportWishUseCase";
+import { GetWishSupportStatusUseCase } from "../../application/usecases/GetWishSupportStatusUseCase";
 interface WishRequestBody {
   name?: string;
   wish?: string;
@@ -16,7 +19,10 @@ export class KoaWishAdapter {
     private updateWishUseCase: UpdateWishUseCase,
     private getWishBySessionUseCase: GetWishBySessionUseCase,
     private getLatestWishesUseCase: GetLatestWishesUseCase,
-    private getUserWishUseCase: GetUserWishUseCase
+    private getUserWishUseCase: GetUserWishUseCase,
+    private supportWishUseCase: SupportWishUseCase,
+    private unsupportWishUseCase: UnsupportWishUseCase,
+    private getWishSupportStatusUseCase: GetWishSupportStatusUseCase
   ) {}
 
   public createWish = async (ctx: Koa.Context): Promise<void> => {
@@ -123,6 +129,93 @@ export class KoaWishAdapter {
       const wish = await this.getUserWishUseCase.execute(userId, sessionId);
       ctx.status = 200;
       ctx.body = { wish };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
+      ctx.status = 400;
+      ctx.body = { error: errorMessage };
+    }
+  };
+
+  public supportWish = async (ctx: Koa.Context): Promise<void> => {
+    try {
+      const { wishId } = ctx.params;
+      const sessionId = ctx.cookies.get("sessionId");
+      const userId = ctx.state.user?.id;
+
+      if (!wishId) {
+        ctx.status = 400;
+        ctx.body = { error: "願い事IDが必要です" };
+        return;
+      }
+
+      const result = await this.supportWishUseCase.execute(wishId, sessionId, userId);
+
+      if (result.alreadySupported) {
+        ctx.status = 400;
+        ctx.body = { error: "既に応援済みです" };
+        return;
+      }
+
+      ctx.status = 200;
+      ctx.body = { message: "応援しました", success: true };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
+      ctx.status = 400;
+      ctx.body = { error: errorMessage };
+    }
+  };
+
+  public unsupportWish = async (ctx: Koa.Context): Promise<void> => {
+    try {
+      const { wishId } = ctx.params;
+      const sessionId = ctx.cookies.get("sessionId");
+      const userId = ctx.state.user?.id;
+
+      if (!wishId) {
+        ctx.status = 400;
+        ctx.body = { error: "願い事IDが必要です" };
+        return;
+      }
+
+      const result = await this.unsupportWishUseCase.execute(wishId, sessionId, userId);
+
+      if (!result.wasSupported) {
+        ctx.status = 400;
+        ctx.body = { error: "応援していません" };
+        return;
+      }
+
+      ctx.status = 200;
+      ctx.body = { message: "応援を取り消しました", success: true };
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
+      ctx.status = 400;
+      ctx.body = { error: errorMessage };
+    }
+  };
+
+  public getWishSupportStatus = async (ctx: Koa.Context): Promise<void> => {
+    try {
+      const { wishId } = ctx.params;
+      const sessionId = ctx.cookies.get("sessionId");
+      const userId = ctx.state.user?.id;
+
+      if (!wishId) {
+        ctx.status = 400;
+        ctx.body = { error: "願い事IDが必要です" };
+        return;
+      }
+
+      const result = await this.getWishSupportStatusUseCase.execute(wishId, sessionId, userId);
+
+      ctx.status = 200;
+      ctx.body = {
+        isSupported: result.isSupported,
+        wish: result.wish,
+      };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";

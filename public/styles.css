@@ -258,6 +258,56 @@ textarea {
   align-self: flex-end;
 }
 
+/* --- 応援ボタンのスタイル --- */
+.wish-support {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  writing-mode: initial;
+  text-orientation: initial;
+}
+
+.support-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 20px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  color: #333;
+}
+
+.support-button:hover {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.support-button.supported {
+  background: #ffd700;
+  color: #333;
+  border-color: #ffcc00;
+}
+
+.support-button.supported:hover {
+  background: #ffcc00;
+}
+
+.star-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.support-count {
+  font-weight: bold;
+  min-width: 20px;
+  text-align: center;
+}
+
 /* --- 非表示・ローディングのスタイル --- */
 .hidden {
   display: none !important;

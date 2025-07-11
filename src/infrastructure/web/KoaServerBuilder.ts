@@ -8,6 +8,9 @@ import {
   GetWishBySessionUseCase,
   GetLatestWishesUseCase,
   GetUserWishUseCase,
+  SupportWishUseCase,
+  UnsupportWishUseCase,
+  GetWishSupportStatusUseCase,
 } from "../../application/usecases";
 import { WishRepository } from "../../domain/repositories/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
@@ -28,13 +31,19 @@ export class KoaServerBuilder implements ServerBuilderStrategy {
     const getWishBySessionUseCase = new GetWishBySessionUseCase(wishRepository);
     const getLatestWishesUseCase = new GetLatestWishesUseCase(wishRepository);
     const getUserWishUseCase = new GetUserWishUseCase(wishRepository);
+    const supportWishUseCase = new SupportWishUseCase(wishRepository);
+    const unsupportWishUseCase = new UnsupportWishUseCase(wishRepository);
+    const getWishSupportStatusUseCase = new GetWishSupportStatusUseCase(wishRepository);
 
     const koaWishAdapter = new KoaWishAdapter(
       createWishUseCase,
       updateWishUseCase,
       getWishBySessionUseCase,
       getLatestWishesUseCase,
-      getUserWishUseCase
+      getUserWishUseCase,
+      supportWishUseCase,
+      unsupportWishUseCase,
+      getWishSupportStatusUseCase
     );
 
     return new KoaServer(dbConnection, koaWishAdapter);

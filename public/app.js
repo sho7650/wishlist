@@ -161,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (data.wishes.length > 0) {
-        data.wishes.forEach((wish) => {
+        for (const wish of data.wishes) {
           const card = document.createElement("div");
           card.className = "wish-card";
           const hue = Math.floor(Math.random() * 360);
@@ -169,11 +169,34 @@ document.addEventListener("DOMContentLoaded", () => {
           card.innerHTML = `
             <div class="wish-content">${escapeHTML(wish.wish)}</div>
             <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
+            <div class="wish-support">
+              <button class="support-button" data-wish-id="${wish.id}">
+                <span class="star-icon">⭐</span>
+                <span class="support-count">${wish.supportCount || 0}</span>
+              </button>
+            </div>
           `;
           wishesList.appendChild(card);
 
+          // 応援状況を確認してボタンスタイルを更新
+          try {
+            const statusResponse = await fetch(`/api/wishes/${wish.id}/support`);
+            const statusData = await statusResponse.json();
+            const button = card.querySelector(".support-button");
+            
+            // 最新の応援数を表示
+            const countElement = button.querySelector(".support-count");
+            countElement.textContent = statusData.wish.supportCount || 0;
+            
+            if (statusData.isSupported) {
+              button.classList.add("supported");
+            }
+          } catch (error) {
+            console.error("Error checking support status:", error);
+          }
+
           applyRandomAnimation(card);
-        });
+        }
         currentOffset += data.wishes.length;
       }
 
@@ -332,6 +355,69 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 無限スクロール
   window.addEventListener("scroll", handleScroll);
+
+  // 応援ボタンのクリックイベント
+  wishesList.addEventListener("click", async (e) => {
+    if (e.target.classList.contains("support-button") || e.target.closest(".support-button")) {
+      const button = e.target.closest(".support-button");
+      const wishId = button.getAttribute("data-wish-id");
+      
+      // ボタンを一時的に無効化
+      button.disabled = true;
+      
+      try {
+        console.log("Support button clicked for wishId:", wishId);
+        
+        // 現在の応援状況を確認
+        const statusResponse = await fetch(`/api/wishes/${wishId}/support`);
+        const statusData = await statusResponse.json();
+        
+        console.log("Current support status:", statusData);
+        
+        let response;
+        if (statusData.isSupported) {
+          // 応援を取り消す
+          console.log("Removing support...");
+          response = await fetch(`/api/wishes/${wishId}/support`, {
+            method: "DELETE"
+          });
+        } else {
+          // 応援する
+          console.log("Adding support...");
+          response = await fetch(`/api/wishes/${wishId}/support`, {
+            method: "POST"
+          });
+        }
+        
+        if (response.ok) {
+          console.log("Support action successful, updating UI...");
+          
+          // 応援状況を再取得してボタンを更新
+          const updatedStatusResponse = await fetch(`/api/wishes/${wishId}/support`);
+          const updatedStatusData = await updatedStatusResponse.json();
+          
+          console.log("Updated support status:", updatedStatusData);
+          
+          const countElement = button.querySelector(".support-count");
+          countElement.textContent = updatedStatusData.wish.supportCount || 0;
+          
+          // ボタンのスタイルを更新
+          if (updatedStatusData.isSupported) {
+            button.classList.add("supported");
+          } else {
+            button.classList.remove("supported");
+          }
+        } else {
+          console.error("Support action failed:", response.status);
+        }
+      } catch (error) {
+        console.error("Error handling support action:", error);
+      } finally {
+        // ボタンを再度有効化
+        button.disabled = false;
+      }
+    }
+  });
 
   // 👇 --- ポップアップのイベントリスナーを追加 ---
   function openModal() {

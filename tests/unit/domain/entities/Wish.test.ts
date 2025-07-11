@@ -6,18 +6,21 @@ describe("Wish Entity", () => {
     const name = "テスト太郎";
     const wishText = "テストの願い事";
     const createdAt = new Date("2025-01-01");
+    const supportCount = 5;
 
     const wish = new Wish({
       id,
       name,
       wish: wishText,
       createdAt,
+      supportCount,
     });
 
     expect(wish.id).toBe(id);
     expect(wish.name).toBe(name);
     expect(wish.wish).toBe(wishText);
     expect(wish.createdAt).toEqual(createdAt);
+    expect(wish.supportCount).toBe(supportCount);
   });
 
   it("should create a new wish with default values when not provided", () => {
@@ -29,6 +32,7 @@ describe("Wish Entity", () => {
     expect(wish.name).toBeUndefined();
     expect(wish.wish).toBe(wishText);
     expect(wish.createdAt).toBeInstanceOf(Date);
+    expect(wish.supportCount).toBe(0);
   });
 
   it("should convert string createdAt to Date object", () => {
@@ -48,13 +52,15 @@ describe("Wish Entity", () => {
       name: "元の名前",
       wish: "元の願い事",
       createdAt: new Date("2025-01-01"),
+      supportCount: 3,
     });
 
     const updatedWish = originalWish.update("新しい名前", "新しい願い事");
 
-    // IDと作成日は変わらないことを確認
+    // IDと作成日、応援数は変わらないことを確認
     expect(updatedWish.id).toBe(originalWish.id);
     expect(updatedWish.createdAt).toEqual(originalWish.createdAt);
+    expect(updatedWish.supportCount).toBe(originalWish.supportCount);
 
     // 名前と願い事は更新されていることを確認
     expect(updatedWish.name).toBe("新しい名前");
