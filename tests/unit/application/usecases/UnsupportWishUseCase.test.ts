@@ -12,6 +12,7 @@ describe("UnsupportWishUseCase", () => {
       findByUserId: jest.fn(),
       findBySessionId: jest.fn(),
       findLatest: jest.fn(),
+      findLatestWithSupportStatus: jest.fn(),
       addSupport: jest.fn(),
       removeSupport: jest.fn(),
       hasSupported: jest.fn(),

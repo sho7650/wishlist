@@ -58,9 +58,10 @@ describe("PostgresConnection", () => {
         ssl: {
           rejectUnauthorized: false,
         },
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
+        max: 5,
+        min: 1,
+        idleTimeoutMillis: 10000,
+        connectionTimeoutMillis: 5000,
       });
     });
 
