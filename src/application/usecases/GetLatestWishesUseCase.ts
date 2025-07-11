@@ -7,4 +7,13 @@ export class GetLatestWishesUseCase {
   async execute(limit: number = 20, offset: number = 0): Promise<Wish[]> {
     return this.wishRepository.findLatest(limit, offset);
   }
+
+  async executeWithSupportStatus(
+    limit: number = 20, 
+    offset: number = 0, 
+    sessionId?: string, 
+    userId?: number
+  ): Promise<Wish[]> {
+    return this.wishRepository.findLatestWithSupportStatus(limit, offset, sessionId, userId);
+  }
 }

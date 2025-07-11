@@ -11,6 +11,7 @@ interface WishRow {
   created_at: string | Date; // 文字列か日付を許容
   user_id: number | null;
   support_count: number;
+  is_supported?: boolean; // 応援状況を追加
 }
 
 export class DatabaseWishRepository implements WishRepository {
@@ -125,6 +126,60 @@ export class DatabaseWishRepository implements WishRepository {
           supportCount: row.support_count || 0,
         })
     );
+  }
+
+  async findLatestWithSupportStatus(
+    limit: number, 
+    offset: number = 0, 
+    sessionId?: string, 
+    userId?: number
+  ): Promise<Wish[]> {
+    const startTime = Date.now();
+    try {
+      // LEFT JOINで応援状況を一緒に取得する最適化されたクエリ
+      const query = `
+        SELECT w.*, 
+               CASE 
+                 WHEN s.wish_id IS NOT NULL THEN true 
+                 ELSE false 
+               END as is_supported
+        FROM wishes w
+        LEFT JOIN supports s ON w.id = s.wish_id 
+          AND ((s.user_id IS NOT NULL AND s.user_id = $3) 
+               OR (s.session_id IS NOT NULL AND s.session_id = $4))
+        ORDER BY w.created_at DESC 
+        LIMIT $1 OFFSET $2
+      `;
+      
+      const result = await this.db.query(query, [
+        limit, 
+        offset, 
+        userId || null, 
+        sessionId || null
+      ]);
+
+      const wishes = result.rows.map((row: WishRow) => 
+        new Wish({
+          id: row.id,
+          name: row.name || undefined,
+          wish: row.wish,
+          createdAt: this.parseDate(row.created_at),
+          userId: row.user_id || undefined,
+          supportCount: row.support_count || 0,
+          isSupported: row.is_supported || false,
+        })
+      );
+
+      const duration = Date.now() - startTime;
+      if (duration > 100) {
+        Logger.warn(`Slow findLatestWithSupportStatus operation: ${duration}ms`);
+      }
+
+      return wishes;
+    } catch (error) {
+      Logger.error('Error finding latest wishes with support status', error as Error);
+      throw error;
+    }
   }
 
   // 文字列や日付型をJavaScript Dateオブジェクトに変換するヘルパーメソッド

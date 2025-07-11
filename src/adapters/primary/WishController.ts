@@ -108,8 +108,16 @@ export class WishController {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
+      const sessionId = req.cookies.sessionId;
+      const userId = req.user?.id;
 
-      const wishes = await this.getLatestWishesUseCase.execute(limit, offset);
+      // 応援状況を含めて取得
+      const wishes = await this.getLatestWishesUseCase.executeWithSupportStatus(
+        limit, 
+        offset, 
+        sessionId, 
+        userId
+      );
       res.status(200).json({ wishes });
     } catch (error: unknown) {
       const errorMessage =

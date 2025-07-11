@@ -5,6 +5,7 @@ export interface WishProps {
   wish: string;
   createdAt?: Date | string; // 文字列も受け付ける
   supportCount?: number; // 応援数を追加
+  isSupported?: boolean; // 現在のユーザーが応援済みかどうか
 }
 
 export class Wish {
@@ -18,6 +19,7 @@ export class Wish {
   readonly wish: string;
   readonly createdAt: Date;
   readonly supportCount: number; // 応援数を追加
+  readonly isSupported?: boolean; // 現在のユーザーが応援済みかどうか
 
   constructor(props: WishProps) {
     // 👇 --- バリデーションを追加 ---
@@ -41,6 +43,7 @@ export class Wish {
     this.wish = props.wish;
     this.userId = props.userId;
     this.supportCount = props.supportCount || 0;
+    this.isSupported = props.isSupported;
 
     // createdAtが文字列なら日付オブジェクトに変換
     if (typeof props.createdAt === "string") {
@@ -61,6 +64,7 @@ export class Wish {
       wish: wish !== undefined ? wish : this.wish,
       createdAt: this.createdAt,
       supportCount: this.supportCount,
+      isSupported: this.isSupported,
     });
   }
 }

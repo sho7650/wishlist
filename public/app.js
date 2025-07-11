@@ -166,34 +166,23 @@ document.addEventListener("DOMContentLoaded", () => {
           card.className = "wish-card";
           const hue = Math.floor(Math.random() * 360);
           card.style.backgroundColor = `hsl(${hue}, 70%, 90%)`;
+          
+          // デバッグ用ログ（一時的に追加）
+          if (wish.isSupported) {
+            console.log(`Wish ${wish.id} is supported:`, wish.isSupported);
+          }
+          
           card.innerHTML = `
             <div class="wish-content">${escapeHTML(wish.wish)}</div>
             <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
             <div class="wish-support">
-              <button class="support-button" data-wish-id="${wish.id}">
+              <button class="support-button ${wish.isSupported ? 'supported' : ''}" data-wish-id="${wish.id}">
                 <span class="star-icon">⭐</span>
                 <span class="support-count">${wish.supportCount || 0}</span>
               </button>
             </div>
           `;
           wishesList.appendChild(card);
-
-          // 応援状況を確認してボタンスタイルを更新
-          try {
-            const statusResponse = await fetch(`/api/wishes/${wish.id}/support`);
-            const statusData = await statusResponse.json();
-            const button = card.querySelector(".support-button");
-            
-            // 最新の応援数を表示
-            const countElement = button.querySelector(".support-count");
-            countElement.textContent = statusData.wish.supportCount || 0;
-            
-            if (statusData.isSupported) {
-              button.classList.add("supported");
-            }
-          } catch (error) {
-            console.error("Error checking support status:", error);
-          }
 
           applyRandomAnimation(card);
         }
