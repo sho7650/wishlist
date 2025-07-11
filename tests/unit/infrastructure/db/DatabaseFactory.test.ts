@@ -1,6 +1,5 @@
 import { DatabaseFactory } from "../../../../src/infrastructure/db/DatabaseFactory";
 import { PostgresConnection } from "../../../../src/infrastructure/db/PostgresConnection";
-import { SQLiteConnection } from "../../../../src/infrastructure/db/SQLiteConnection";
 
 // 環境変数をモック
 const originalEnv = process.env;
@@ -17,115 +16,33 @@ describe("DatabaseFactory", () => {
     process.env = originalEnv;
   });
 
-  it("should create PostgresConnection when DB_TYPE is postgres", () => {
-    // 環境変数を設定
-    process.env.DB_TYPE = "postgres";
-
-    // PostgresConnectionとSQLiteConnectionをモック
-    jest.mock("../../../../src/infrastructure/db/PostgresConnection", () => ({
-      PostgresConnection: jest.fn().mockImplementation(() => ({
-        type: "postgres",
-      })),
-    }));
-
-    jest.mock("../../../../src/infrastructure/db/SQLiteConnection", () => ({
-      SQLiteConnection: jest.fn().mockImplementation(() => ({
-        type: "sqlite",
-      })),
-    }));
-
-    // テスト対象を再読み込み
-    const factory =
-      require("../../../../src/infrastructure/db/DatabaseFactory").DatabaseFactory;
-
-    // 実行
-    const connection = factory.createConnection();
-
-    // 検証
-    expect(connection.type).toBe("postgres");
+  it("should always create PostgresConnection for high performance", () => {
+    // PostgreSQLのみをサポートし、高速化を実現
+    const connection = DatabaseFactory.createConnection();
+    
+    // 検証 - PostgresConnectionのインスタンスが作成される
+    expect(connection).toBeInstanceOf(PostgresConnection);
   });
 
-  it("should create SQLiteConnection when DB_TYPE is sqlite", () => {
-    // 環境変数を設定
+  it("should create PostgresConnection regardless of environment variables", () => {
+    // 環境変数を設定してもPostgreSQLのみを使用
     process.env.DB_TYPE = "sqlite";
-
-    // PostgresConnectionとSQLiteConnectionをモック
-    jest.mock("../../../../src/infrastructure/db/PostgresConnection", () => ({
-      PostgresConnection: jest.fn().mockImplementation(() => ({
-        type: "postgres",
-      })),
-    }));
-
-    jest.mock("../../../../src/infrastructure/db/SQLiteConnection", () => ({
-      SQLiteConnection: jest.fn().mockImplementation(() => ({
-        type: "sqlite",
-      })),
-    }));
-
-    // テスト対象を再読み込み
-    const factory =
-      require("../../../../src/infrastructure/db/DatabaseFactory").DatabaseFactory;
-
-    // 実行
-    const connection = factory.createConnection();
-
-    // 検証
-    expect(connection.type).toBe("sqlite");
-  });
-
-  it("should use SQLiteConnection as default when DB_TYPE is not specified", () => {
-    // 環境変数をクリア
-    delete process.env.DB_TYPE;
-
-    // PostgresConnectionとSQLiteConnectionをモック
-    jest.mock("../../../../src/infrastructure/db/PostgresConnection", () => ({
-      PostgresConnection: jest.fn().mockImplementation(() => ({
-        type: "postgres",
-      })),
-    }));
-
-    jest.mock("../../../../src/infrastructure/db/SQLiteConnection", () => ({
-      SQLiteConnection: jest.fn().mockImplementation(() => ({
-        type: "sqlite",
-      })),
-    }));
-
-    // テスト対象を再読み込み
-    const factory =
-      require("../../../../src/infrastructure/db/DatabaseFactory").DatabaseFactory;
-
-    // 実行
-    const connection = factory.createConnection();
-
-    // 検証
-    expect(connection.type).toBe("sqlite");
-  });
-
-  it("should use PostgresConnection when DATABASE_URL is set (Heroku environment)", () => {
-    // Heroku環境をシミュレート
     process.env.DATABASE_URL = "postgres://user:password@host:5432/database";
 
-    // PostgresConnectionとSQLiteConnectionをモック
-    jest.mock("../../../../src/infrastructure/db/PostgresConnection", () => ({
-      PostgresConnection: jest.fn().mockImplementation(() => ({
-        type: "postgres",
-      })),
-    }));
+    const connection = DatabaseFactory.createConnection();
+    
+    // 検証 - 常にPostgresConnectionが作成される
+    expect(connection).toBeInstanceOf(PostgresConnection);
+  });
 
-    jest.mock("../../../../src/infrastructure/db/SQLiteConnection", () => ({
-      SQLiteConnection: jest.fn().mockImplementation(() => ({
-        type: "sqlite",
-      })),
-    }));
+  it("should create PostgresConnection when no environment variables are set", () => {
+    // 環境変数をクリア
+    delete process.env.DB_TYPE;
+    delete process.env.DATABASE_URL;
 
-    // テスト対象を再読み込み
-    const factory =
-      require("../../../../src/infrastructure/db/DatabaseFactory").DatabaseFactory;
-
-    // 実行
-    const connection = factory.createConnection();
-
-    // 検証
-    expect(connection.type).toBe("postgres");
+    const connection = DatabaseFactory.createConnection();
+    
+    // 検証 - デフォルトでもPostgresConnectionが作成される
+    expect(connection).toBeInstanceOf(PostgresConnection);
   });
 });

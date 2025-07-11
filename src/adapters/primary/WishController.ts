@@ -147,11 +147,19 @@ export class WishController {
       const result = await this.supportWishUseCase.execute(wishId, sessionId, userId);
 
       if (result.alreadySupported) {
-        res.status(400).json({ error: "既に応援済みです" });
+        res.status(200).json({ 
+          message: "既に応援済みです", 
+          success: true, 
+          alreadySupported: true 
+        });
         return;
       }
 
-      res.status(200).json({ message: "応援しました", success: true });
+      res.status(200).json({ 
+        message: "応援しました", 
+        success: true, 
+        alreadySupported: false 
+      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";
@@ -173,11 +181,19 @@ export class WishController {
       const result = await this.unsupportWishUseCase.execute(wishId, sessionId, userId);
 
       if (!result.wasSupported) {
-        res.status(400).json({ error: "応援していません" });
+        res.status(200).json({ 
+          message: "応援していませんでした", 
+          success: true, 
+          wasSupported: false 
+        });
         return;
       }
 
-      res.status(200).json({ message: "応援を取り消しました", success: true });
+      res.status(200).json({ 
+        message: "応援を取り消しました", 
+        success: true, 
+        wasSupported: true 
+      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";

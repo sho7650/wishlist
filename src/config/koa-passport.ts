@@ -63,14 +63,6 @@ export function configureKoaPassport(db: DatabaseConnection) {
           const newUserQuery =
             "INSERT INTO users (google_id, display_name, email, picture) VALUES ($1, $2, $3, $4) RETURNING *";
 
-          console.log("Executing SQL:", newUserQuery);
-          console.log(
-            "With values:",
-            profile.id,
-            profile.displayName,
-            profile.emails ? profile.emails[0].value : null,
-            pictureUrl
-          );
           const newUserResult = await db.query(newUserQuery, [
             profile.id,
             profile.displayName,

@@ -138,95 +138,70 @@ export class DatabaseWishRepository implements WishRepository {
   }
 
   async addSupport(wishId: string, sessionId?: string, userId?: number): Promise<void> {
-    try {
-      console.log('DEBUG: addSupport called with:', { wishId, sessionId, userId });
-      
-      // 既に応援済みかチェック
-      const exists = await this.hasSupported(wishId, sessionId, userId);
-      console.log('DEBUG: Already supported?', exists);
-      if (exists) {
-        console.log('DEBUG: Already supported, returning early');
-        return;
-      }
-      
-      // 応援記録を挿入
-      const insertSupportQuery = `
-        INSERT INTO supports (wish_id, session_id, user_id)
-        VALUES ($1, $2, $3)
-      `;
-      console.log('DEBUG: Inserting support record');
-      await this.db.query(insertSupportQuery, [wishId, sessionId || null, userId || null]);
-
-      // 応援数を更新
-      const countQuery = `SELECT COUNT(*) as count FROM supports WHERE wish_id = $1`;
-      const countResult = await this.db.query(countQuery, [wishId]);
-      const supportCount = parseInt(countResult.rows[0].count);
-      console.log('DEBUG: Current support count:', supportCount);
-      
-      const updateCountQuery = `
-        UPDATE wishes 
-        SET support_count = $1
-        WHERE id = $2
-      `;
-      console.log('DEBUG: Updating support count to:', supportCount);
-      const updateResult = await this.db.query(updateCountQuery, [supportCount, wishId]);
-      console.log('DEBUG: Update result:', updateResult);
-      console.log('DEBUG: Support count updated successfully');
-
-    } catch (error) {
-      console.error('DEBUG: Error in addSupport:', error);
-      throw error;
+    // 既に応援済みかチェック
+    const exists = await this.hasSupported(wishId, sessionId, userId);
+    if (exists) {
+      return; // 既に応援済みの場合は何もしない
     }
+    
+    // 応援記録を挿入
+    const insertQuery = `
+      INSERT INTO supports (wish_id, session_id, user_id)
+      VALUES ($1, $2, $3)
+    `;
+    await this.db.query(insertQuery, [wishId, sessionId || null, userId || null]);
+    
+    // 応援数を更新
+    const updateQuery = `
+      UPDATE wishes 
+      SET support_count = (
+        SELECT COUNT(*) FROM supports WHERE wish_id = $1
+      )
+      WHERE id = $1
+    `;
+    await this.db.query(updateQuery, [wishId]);
   }
 
   async removeSupport(wishId: string, sessionId?: string, userId?: number): Promise<void> {
-    try {
-      // 応援記録を削除
-      const deleteSupportQuery = `
-        DELETE FROM supports 
-        WHERE wish_id = $1 
-          AND (user_id = $2 OR session_id = $3)
-          AND (user_id IS NOT NULL OR session_id IS NOT NULL)
-      `;
-      await this.db.query(deleteSupportQuery, [wishId, userId || null, sessionId || null]);
-
-      // 応援数を更新
-      const countQuery = `SELECT COUNT(*) as count FROM supports WHERE wish_id = $1`;
-      const countResult = await this.db.query(countQuery, [wishId]);
-      const supportCount = parseInt(countResult.rows[0].count);
-      console.log('DEBUG: Current support count after removal:', supportCount);
-      
-      const updateCountQuery = `
-        UPDATE wishes 
-        SET support_count = $1
-        WHERE id = $2
-      `;
-      await this.db.query(updateCountQuery, [supportCount, wishId]);
-      console.log('DEBUG: Support count updated after removal to:', supportCount);
-
-    } catch (error) {
-      throw error;
-    }
+    // 応援記録を削除
+    const deleteQuery = `
+      DELETE FROM supports 
+      WHERE wish_id = $1 
+        AND ((
+          user_id IS NOT NULL AND user_id = $2
+        ) OR (
+          session_id IS NOT NULL AND session_id = $3
+        ))
+    `;
+    
+    const deleteResult = await this.db.query(deleteQuery, [wishId, userId || null, sessionId || null]);
+    
+    // 応援数を更新
+    const updateQuery = `
+      UPDATE wishes 
+      SET support_count = (
+        SELECT COUNT(*) FROM supports WHERE wish_id = $1
+      )
+      WHERE id = $1
+    `;
+    const updateResult = await this.db.query(updateQuery, [wishId]);
   }
 
   async hasSupported(wishId: string, sessionId?: string, userId?: number): Promise<boolean> {
-    console.log('DEBUG: hasSupported called with:', { wishId, sessionId, userId });
+    // PostgreSQL用の最適化されたEXISTSクエリ
     const query = `
-      SELECT COUNT(*) as count
-      FROM supports 
-      WHERE wish_id = $1 
-        AND (user_id = $2 OR session_id = $3)
-        AND (user_id IS NOT NULL OR session_id IS NOT NULL)
-      LIMIT 1
+      SELECT EXISTS(
+        SELECT 1 FROM supports 
+        WHERE wish_id = $1 
+          AND ((
+            user_id IS NOT NULL AND user_id = $2
+          ) OR (
+            session_id IS NOT NULL AND session_id = $3
+          ))
+      ) as exists
     `;
-    const params = [wishId, userId || null, sessionId || null];
-    console.log('DEBUG: Executing query:', query);
-    console.log('DEBUG: With params:', params);
-
-    const result = await this.db.query(query, params);
-    console.log('DEBUG: Query result:', result.rows[0]);
-    const isSupported = parseInt(result.rows[0].count) > 0;
-    console.log('DEBUG: isSupported result:', isSupported);
-    return isSupported;
+    
+    const result = await this.db.query(query, [wishId, userId || null, sessionId || null]);
+    return result.rows[0].exists;
   }
 }
