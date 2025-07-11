@@ -1,6 +1,7 @@
 import { Wish } from "../../domain/entities/Wish";
 import { WishRepository } from "../../domain/repositories/WishRepository";
 import { DatabaseConnection } from "../../infrastructure/db/DatabaseConnection";
+import { Logger } from "../../utils/Logger";
 
 // データベースの行の型定義
 interface WishRow {
@@ -16,6 +17,7 @@ export class DatabaseWishRepository implements WishRepository {
   constructor(private db: DatabaseConnection) {}
 
   async save(wish: Wish, userId?: number): Promise<void> {
+    const startTime = Date.now();
     // UPSERTクエリ (DBタイプに関わらず、ファクトリで適切に変換される)
     const query = `
       INSERT INTO wishes (id, name, wish, created_at, user_id, support_count)
@@ -23,14 +25,23 @@ export class DatabaseWishRepository implements WishRepository {
       ON CONFLICT (id) 
       DO UPDATE SET name = $2, wish = $3, user_id = $5, support_count = $6
     `;
-    await this.db.query(query, [
-      wish.id,
-      wish.name || null,
-      wish.wish,
-      wish.createdAt,
-      userId || null, // ユーザーIDがなければNULL
-      wish.supportCount,
-    ]);
+    try {
+      await this.db.query(query, [
+        wish.id,
+        wish.name || null,
+        wish.wish,
+        wish.createdAt,
+        userId || null, // ユーザーIDがなければNULL
+        wish.supportCount,
+      ]);
+      const duration = Date.now() - startTime;
+      if (duration > 100) {
+        Logger.warn(`Slow save operation: ${duration}ms`);
+      }
+    } catch (error) {
+      Logger.error('Error saving wish', error as Error);
+      throw error;
+    }
   }
 
   async findByUserId(userId: number): Promise<Wish | null> {
@@ -138,53 +149,75 @@ export class DatabaseWishRepository implements WishRepository {
   }
 
   async addSupport(wishId: string, sessionId?: string, userId?: number): Promise<void> {
-    // 既に応援済みかチェック
-    const exists = await this.hasSupported(wishId, sessionId, userId);
-    if (exists) {
-      return; // 既に応援済みの場合は何もしない
+    const startTime = Date.now();
+    try {
+      // 既に応援済みかチェック
+      const exists = await this.hasSupported(wishId, sessionId, userId);
+      if (exists) {
+        return; // 既に応援済みの場合は何もしない
+      }
+      
+      // 応援記録を挿入
+      const insertQuery = `
+        INSERT INTO supports (wish_id, session_id, user_id)
+        VALUES ($1, $2, $3)
+      `;
+      await this.db.query(insertQuery, [wishId, sessionId || null, userId || null]);
+      
+      // 応援数を更新
+      const updateQuery = `
+        UPDATE wishes 
+        SET support_count = (
+          SELECT COUNT(*) FROM supports WHERE wish_id = $1
+        )
+        WHERE id = $1
+      `;
+      await this.db.query(updateQuery, [wishId]);
+      
+      const duration = Date.now() - startTime;
+      if (duration > 100) {
+        Logger.warn(`Slow addSupport operation: ${duration}ms`);
+      }
+    } catch (error) {
+      Logger.error('Error adding support', error as Error);
+      throw error;
     }
-    
-    // 応援記録を挿入
-    const insertQuery = `
-      INSERT INTO supports (wish_id, session_id, user_id)
-      VALUES ($1, $2, $3)
-    `;
-    await this.db.query(insertQuery, [wishId, sessionId || null, userId || null]);
-    
-    // 応援数を更新
-    const updateQuery = `
-      UPDATE wishes 
-      SET support_count = (
-        SELECT COUNT(*) FROM supports WHERE wish_id = $1
-      )
-      WHERE id = $1
-    `;
-    await this.db.query(updateQuery, [wishId]);
   }
 
   async removeSupport(wishId: string, sessionId?: string, userId?: number): Promise<void> {
-    // 応援記録を削除
-    const deleteQuery = `
-      DELETE FROM supports 
-      WHERE wish_id = $1 
-        AND ((
-          user_id IS NOT NULL AND user_id = $2
-        ) OR (
-          session_id IS NOT NULL AND session_id = $3
-        ))
-    `;
-    
-    const deleteResult = await this.db.query(deleteQuery, [wishId, userId || null, sessionId || null]);
-    
-    // 応援数を更新
-    const updateQuery = `
-      UPDATE wishes 
-      SET support_count = (
-        SELECT COUNT(*) FROM supports WHERE wish_id = $1
-      )
-      WHERE id = $1
-    `;
-    const updateResult = await this.db.query(updateQuery, [wishId]);
+    const startTime = Date.now();
+    try {
+      // 応援記録を削除
+      const deleteQuery = `
+        DELETE FROM supports 
+        WHERE wish_id = $1 
+          AND ((
+            user_id IS NOT NULL AND user_id = $2
+          ) OR (
+            session_id IS NOT NULL AND session_id = $3
+          ))
+      `;
+      
+      const deleteResult = await this.db.query(deleteQuery, [wishId, userId || null, sessionId || null]);
+      
+      // 応援数を更新
+      const updateQuery = `
+        UPDATE wishes 
+        SET support_count = (
+          SELECT COUNT(*) FROM supports WHERE wish_id = $1
+        )
+        WHERE id = $1
+      `;
+      const updateResult = await this.db.query(updateQuery, [wishId]);
+      
+      const duration = Date.now() - startTime;
+      if (duration > 100) {
+        Logger.warn(`Slow removeSupport operation: ${duration}ms`);
+      }
+    } catch (error) {
+      Logger.error('Error removing support', error as Error);
+      throw error;
+    }
   }
 
   async hasSupported(wishId: string, sessionId?: string, userId?: number): Promise<boolean> {

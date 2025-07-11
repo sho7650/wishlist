@@ -1,6 +1,7 @@
 import { Pool, PoolClient, QueryResult } from "pg";
 import { DatabaseConnection, DatabaseResult } from "./DatabaseConnection";
 import { parse as parseDbUrl } from "pg-connection-string";
+import { Logger } from "../../utils/Logger";
 
 export class PostgresConnection implements DatabaseConnection {
   private pool: Pool;
@@ -15,10 +16,12 @@ export class PostgresConnection implements DatabaseConnection {
         ssl: {
           rejectUnauthorized: false, // Herokuでは自己署名証明書を使用するためfalseに設定
         },
-        // 本番環境向けの最適化設定
-        max: 20, // 最大接続数
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
+        // Heroku向けの最適化設定
+        max: 5, // Heroku無料プランでは接続数制限があるため削減
+        min: 1, // 最小接続数を保持
+        idleTimeoutMillis: 10000, // アイドル時間を短縮
+        connectionTimeoutMillis: 5000, // 接続タイムアウトを延長
+        acquireTimeoutMillis: 10000, // 接続取得タイムアウト
       });
     } else {
       // 開発環境の接続設定
@@ -107,7 +110,7 @@ export class PostgresConnection implements DatabaseConnection {
     `;
 
     await this.query(createTablesQuery, []);
-    console.log("PostgreSQL database initialized");
+    Logger.info("PostgreSQL database initialized");
   }
 
   async close(): Promise<void> {
