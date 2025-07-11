@@ -8,6 +8,7 @@ const mockApp = {
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
+  delete: jest.fn(),
   listen: jest.fn((port, callback) => {
     if (callback) callback();
     return { close: jest.fn() };
@@ -40,7 +41,7 @@ jest.mock("passport-oauth2", () => {
 class MockWishController extends WishController {
   constructor() {
     // superにはダミーのモックを渡す
-    super({} as any, {} as any, {} as any, {} as any, {} as any);
+    super({} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any);
     // メソッドをjestのモック関数で上書き
     this.createWish = jest.fn();
     this.updateWish = jest.fn();

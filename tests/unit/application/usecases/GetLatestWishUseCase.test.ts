@@ -8,6 +8,9 @@ const mockWishRepository = {
   findBySessionId: jest.fn(),
   findLatest: jest.fn(),
   findByUserId: jest.fn(), // ユーザーIDで探すメソッドを追加
+  addSupport: jest.fn(),
+  removeSupport: jest.fn(),
+  hasSupported: jest.fn(),
 };
 
 describe("GetLatestWishesUseCase", () => {
