@@ -1,6 +1,7 @@
 import { Pool, PoolClient, QueryResult } from "pg";
 import { DatabaseConnection, DatabaseResult } from "./DatabaseConnection";
 import { parse as parseDbUrl } from "pg-connection-string";
+import { Logger } from "../../utils/Logger";
 
 export class PostgresConnection implements DatabaseConnection {
   private pool: Pool;
@@ -15,18 +16,25 @@ export class PostgresConnection implements DatabaseConnection {
         ssl: {
           rejectUnauthorized: false, // Herokuでは自己署名証明書を使用するためfalseに設定
         },
+        // Heroku向けの最適化設定
+        max: 5, // Heroku無料プランでは接続数制限があるため削減
+        min: 1, // 最小接続数を保持
+        idleTimeoutMillis: 10000, // アイドル時間を短縮
+        connectionTimeoutMillis: 5000, // 接続タイムアウトを延長
       });
-      console.log("Using Heroku PostgreSQL connection");
     } else {
-      // 通常の接続設定
+      // 開発環境の接続設定
       this.pool = new Pool({
         host: process.env.DB_HOST || "localhost",
         port: parseInt(process.env.DB_PORT || "5432"),
         database: process.env.DB_NAME || "wishlist",
         user: process.env.DB_USER || "postgres",
         password: process.env.DB_PASSWORD || "password",
+        // 開発環境向けの設定
+        max: 10, // 最大接続数
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 2000,
       });
-      console.log("Using standard PostgreSQL connection");
     }
   }
 
@@ -82,15 +90,26 @@ export class PostgresConnection implements DatabaseConnection {
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- パフォーマンス最適化のためのインデックス
       CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_session 
       ON supports(wish_id, session_id) WHERE session_id IS NOT NULL;
       
       CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_user 
       ON supports(wish_id, user_id) WHERE user_id IS NOT NULL;
+      
+      -- 高速クエリのための追加インデックス
+      CREATE INDEX IF NOT EXISTS idx_wishes_created_at 
+      ON wishes(created_at DESC);
+      
+      CREATE INDEX IF NOT EXISTS idx_wishes_user_id 
+      ON wishes(user_id) WHERE user_id IS NOT NULL;
+      
+      CREATE INDEX IF NOT EXISTS idx_supports_wish_id 
+      ON supports(wish_id);
     `;
 
     await this.query(createTablesQuery, []);
-    console.log("PostgreSQL database initialized");
+    Logger.info("PostgreSQL database initialized");
   }
 
   async close(): Promise<void> {

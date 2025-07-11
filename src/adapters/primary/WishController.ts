@@ -108,8 +108,16 @@ export class WishController {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
+      const sessionId = req.cookies.sessionId;
+      const userId = req.user?.id;
 
-      const wishes = await this.getLatestWishesUseCase.execute(limit, offset);
+      // 応援状況を含めて取得
+      const wishes = await this.getLatestWishesUseCase.executeWithSupportStatus(
+        limit, 
+        offset, 
+        sessionId, 
+        userId
+      );
       res.status(200).json({ wishes });
     } catch (error: unknown) {
       const errorMessage =
@@ -147,11 +155,19 @@ export class WishController {
       const result = await this.supportWishUseCase.execute(wishId, sessionId, userId);
 
       if (result.alreadySupported) {
-        res.status(400).json({ error: "既に応援済みです" });
+        res.status(200).json({ 
+          message: "既に応援済みです", 
+          success: true, 
+          alreadySupported: true 
+        });
         return;
       }
 
-      res.status(200).json({ message: "応援しました", success: true });
+      res.status(200).json({ 
+        message: "応援しました", 
+        success: true, 
+        alreadySupported: false 
+      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";
@@ -173,11 +189,19 @@ export class WishController {
       const result = await this.unsupportWishUseCase.execute(wishId, sessionId, userId);
 
       if (!result.wasSupported) {
-        res.status(400).json({ error: "応援していません" });
+        res.status(200).json({ 
+          message: "応援していませんでした", 
+          success: true, 
+          wasSupported: false 
+        });
         return;
       }
 
-      res.status(200).json({ message: "応援を取り消しました", success: true });
+      res.status(200).json({ 
+        message: "応援を取り消しました", 
+        success: true, 
+        wasSupported: true 
+      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";

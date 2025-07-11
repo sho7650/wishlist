@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM Content Loaded: Initializing application...");
+  // console.log("DOM Content Loaded: Initializing application...");
 
   // --- DOM要素の取得 ---
   const viewerContainer = document.getElementById("viewer-container");
@@ -32,13 +32,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- 画面表示の切り替え関数 ---
   function showViewerScreen() {
-    console.log("Switching to Viewer Screen");
+    // console.log("Switching to Viewer Screen");
     viewerContainer.classList.remove("hidden");
     formContainer.classList.add("hidden");
   }
 
   function showFormScreen() {
-    console.log("Switching to Form Screen");
+    // console.log("Switching to Form Screen");
     viewerContainer.classList.add("hidden");
     formContainer.classList.remove("hidden");
   }
@@ -71,9 +71,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- ★ ユーザーの認証状態を確認し、UIを更新する関数 ---
   async function checkAuthState() {
     try {
-      console.log("Checking auth state...");
+      // console.log("Checking auth state...");
       const response = await fetch("/api/user");
-      console.log("Response from /api/user:", response.status, response.ok);
+      // console.log("Response from /api/user:", response.status, response.ok);
       const user =
         response.ok && response.headers.get("content-length") !== "0"
           ? await response.json()
@@ -81,8 +81,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (userAvatar && loginButton && postWishButton && logoutButton) {
         // const user = await response.json();
-        console.log("User data received:", user); // ★このログを確認
-        console.log("userAvatar element:", userAvatar);
+        // console.log("User data received:", user); // ★このログを確認
+        // console.log("userAvatar element:", userAvatar);
 
         // ログイン済み
         loginButton.classList.add("hidden");
@@ -118,7 +118,7 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await fetch("/api/user/wish");
       const data = await response.json();
-      console.log("Wish data received:", data); // ★このログを確認
+      // console.log("Wish data received:", data); // ★このログを確認
       if (data.wish) {
         postWishButton.textContent = "投稿を修正する";
       } else {
@@ -133,21 +133,21 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- 願い事データを読み込む関数 ---
   async function loadWishes(offset = 0, append = false) {
     if (isLoading) {
-      console.log(
-        "loadWishes: Skipped because a request is already in progress."
-      );
+      // console.log(
+      //   "loadWishes: Skipped because a request is already in progress."
+      // );
       return;
     }
     if (!append && !hasMoreWishes) {
-      console.log(
-        "loadWishes: Skipped because there are no more wishes to load for a fresh list."
-      );
+      // console.log(
+      //   "loadWishes: Skipped because there are no more wishes to load for a fresh list."
+      // );
       return;
     }
 
     isLoading = true;
     loadingIndicator.classList.remove("hidden");
-    console.log(`loadWishes: Fetching wishes... (offset: ${offset})`);
+    // console.log(`loadWishes: Fetching wishes... (offset: ${offset})`);
 
     try {
       const response = await fetch(`/api/wishes?limit=20&offset=${offset}`);
@@ -166,34 +166,23 @@ document.addEventListener("DOMContentLoaded", () => {
           card.className = "wish-card";
           const hue = Math.floor(Math.random() * 360);
           card.style.backgroundColor = `hsl(${hue}, 70%, 90%)`;
+          
+          // デバッグ用ログ（一時的に追加）
+          if (wish.isSupported) {
+            console.log(`Wish ${wish.id} is supported:`, wish.isSupported);
+          }
+          
           card.innerHTML = `
             <div class="wish-content">${escapeHTML(wish.wish)}</div>
             <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
             <div class="wish-support">
-              <button class="support-button" data-wish-id="${wish.id}">
+              <button class="support-button ${wish.isSupported ? 'supported' : ''}" data-wish-id="${wish.id}">
                 <span class="star-icon">⭐</span>
                 <span class="support-count">${wish.supportCount || 0}</span>
               </button>
             </div>
           `;
           wishesList.appendChild(card);
-
-          // 応援状況を確認してボタンスタイルを更新
-          try {
-            const statusResponse = await fetch(`/api/wishes/${wish.id}/support`);
-            const statusData = await statusResponse.json();
-            const button = card.querySelector(".support-button");
-            
-            // 最新の応援数を表示
-            const countElement = button.querySelector(".support-count");
-            countElement.textContent = statusData.wish.supportCount || 0;
-            
-            if (statusData.isSupported) {
-              button.classList.add("supported");
-            }
-          } catch (error) {
-            console.error("Error checking support status:", error);
-          }
 
           applyRandomAnimation(card);
         }
@@ -203,19 +192,19 @@ document.addEventListener("DOMContentLoaded", () => {
       // 取得したデータがリクエストした数より少なければ、これが最後のページ
       if (data.wishes.length < 20) {
         hasMoreWishes = false;
-        console.log("loadWishes: Reached the end of all wishes.");
+        // console.log("loadWishes: Reached the end of all wishes.");
       }
 
-      console.log(
-        `loadWishes: Success. New offset is ${currentOffset}. Has more: ${hasMoreWishes}`
-      );
+      // console.log(
+      //   `loadWishes: Success. New offset is ${currentOffset}. Has more: ${hasMoreWishes}`
+      // );
     } catch (error) {
       console.error("Error loading wishes:", error);
       hasMoreWishes = false; // エラー時も追加読み込みを停止
     } finally {
       isLoading = false;
       loadingIndicator.classList.add("hidden");
-      console.log("loadWishes: Finished. isLoading is now false.");
+      // console.log("loadWishes: Finished. isLoading is now false.");
     }
   }
 
@@ -234,9 +223,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // ドキュメントの底から200px以内にスクロールしたら次のデータを読み込む
     if (scrollableHeight > 0 && scrollableHeight - scrollPosition < 200) {
       if (!isLoading && hasMoreWishes) {
-        console.log(
-          "handleScroll: Reached bottom of page, attempting to load more wishes."
-        );
+        // console.log(
+        //   "handleScroll: Reached bottom of page, attempting to load more wishes."
+        // );
         loadWishes(currentOffset, true);
       }
     }
@@ -266,7 +255,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 「願い事を投稿する」ボタン
   postWishButton.addEventListener("click", async () => {
-    console.log("New Wish Button clicked.");
+    // console.log("New Wish Button clicked.");
     wishForm.reset();
     isEditMode = false;
     formTitle.textContent = "願い事を投稿";
@@ -276,7 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch("/api/user/wish");
       const data = await response.json();
       if (data.wish) {
-        console.log("Existing wish found. Entering edit mode.");
+        // console.log("Existing wish found. Entering edit mode.");
         isEditMode = true;
         formTitle.textContent = "願い事を編集";
         submitButton.textContent = "更新する";
@@ -292,14 +281,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 「閲覧画面に戻る」ボタン
   backButton.addEventListener("click", () => {
-    console.log("Back Button clicked.");
+    // console.log("Back Button clicked.");
     showViewerScreen();
   });
 
   // 投稿フォームの送信
   wishForm.addEventListener("submit", async (e) => {
     e.preventDefault();
-    console.log("Wish form submitted.");
+    // console.log("Wish form submitted.");
 
     const name = nameInput.value.trim();
     const wish = wishInput.value.trim();
@@ -366,37 +355,37 @@ document.addEventListener("DOMContentLoaded", () => {
       button.disabled = true;
       
       try {
-        console.log("Support button clicked for wishId:", wishId);
+        // console.log("Support button clicked for wishId:", wishId);
         
         // 現在の応援状況を確認
         const statusResponse = await fetch(`/api/wishes/${wishId}/support`);
         const statusData = await statusResponse.json();
         
-        console.log("Current support status:", statusData);
+        // console.log("Current support status:", statusData);
         
         let response;
         if (statusData.isSupported) {
           // 応援を取り消す
-          console.log("Removing support...");
+          // console.log("Removing support...");
           response = await fetch(`/api/wishes/${wishId}/support`, {
             method: "DELETE"
           });
         } else {
           // 応援する
-          console.log("Adding support...");
+          // console.log("Adding support...");
           response = await fetch(`/api/wishes/${wishId}/support`, {
             method: "POST"
           });
         }
         
         if (response.ok) {
-          console.log("Support action successful, updating UI...");
+          // console.log("Support action successful, updating UI...");
           
           // 応援状況を再取得してボタンを更新
           const updatedStatusResponse = await fetch(`/api/wishes/${wishId}/support`);
           const updatedStatusData = await updatedStatusResponse.json();
           
-          console.log("Updated support status:", updatedStatusData);
+          // console.log("Updated support status:", updatedStatusData);
           
           const countElement = button.querySelector(".support-count");
           countElement.textContent = updatedStatusData.wish.supportCount || 0;

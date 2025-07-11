@@ -11,9 +11,6 @@ npm run dev
 
 # Start development server with Koa
 npm run dev:koa
-
-# Start development server with PostgreSQL
-npm run dev:pg
 ```
 
 ### Build and Production
@@ -73,22 +70,25 @@ This is a **Tanabata Wish Board** application built with **Hexagonal Architectur
 
 ### Framework Flexibility
 
-The application supports multiple web frameworks and databases:
+The application supports multiple web frameworks with PostgreSQL as the optimized database:
 
 **Web Frameworks** (configurable via `WEB_FRAMEWORK` env var):
 - Express.js (default)
 - Koa.js
 
-**Databases** (auto-detected via environment):
-- PostgreSQL (production, triggered by `DATABASE_URL` env var)
-- SQLite (development, default)
+**Database**:
+- PostgreSQL (high-performance, optimized for production)
 
 ### Environment Configuration
 
 Key environment variables:
 - `WEB_FRAMEWORK`: `express` or `koa`
-- `DB_TYPE`: `sqlite` or `postgres`
 - `DATABASE_URL`: PostgreSQL connection string (Heroku)
+- `DB_HOST`: PostgreSQL host (default: localhost)
+- `DB_PORT`: PostgreSQL port (default: 5432)
+- `DB_NAME`: Database name (default: wishlist)
+- `DB_USER`: Database user (default: postgres)
+- `DB_PASSWORD`: Database password (default: password)
 - `PORT`: Server port (default: 3000)
 
 ### Testing Structure
@@ -110,11 +110,24 @@ npm test -- --testPathPattern="unit/application"
 
 ### Database Schema
 
-The application manages a simple wish entity with:
+The application uses PostgreSQL with optimized schema and indexes:
+
+**Main Tables:**
+- `users`: Google OAuth user management
+- `wishes`: Core wish entities with support counting
+- `sessions`: Anonymous user session tracking
+- `supports`: Wish support system with uniqueness constraints
+
+**Performance Optimizations:**
+- Optimized indexes for fast queries
+- PostgreSQL-specific CTE queries for atomic operations
+- Connection pooling for high concurrency
+- Unique constraints to prevent duplicate support
+
+**Wish Entity Fields:**
 - `id`: UUID primary key
 - `name`: Optional user name (max 64 chars)
 - `wish`: Wish text (1-240 chars)
 - `userId`: Optional user ID for authenticated users
+- `supportCount`: Real-time support count
 - `createdAt`: Timestamp
-
-Session management tracks wish ownership through session IDs.
