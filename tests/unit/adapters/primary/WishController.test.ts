@@ -41,6 +41,7 @@ const mockGetWishBySessionUseCase = {
 
 const mockGetLatestWishesUseCase = {
   execute: jest.fn(),
+  executeWithSupportStatus: jest.fn(),
 };
 
 const mockGetUserWishUseCase = {
@@ -260,13 +261,13 @@ describe("WishController", () => {
         new Wish({ id: "2", wish: "願い事2", createdAt: new Date() }),
       ];
 
-      mockGetLatestWishesUseCase.execute.mockResolvedValue(mockWishes);
+      mockGetLatestWishesUseCase.executeWithSupportStatus.mockResolvedValue(mockWishes);
 
       // 実行
       await wishController.getLatestWishes(req, res);
 
       // 検証
-      expect(mockGetLatestWishesUseCase.execute).toHaveBeenCalledWith(10, 20);
+      expect(mockGetLatestWishesUseCase.executeWithSupportStatus).toHaveBeenCalledWith(10, 20, undefined, undefined);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ wishes: mockWishes });
     });

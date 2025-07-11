@@ -167,11 +167,6 @@ document.addEventListener("DOMContentLoaded", () => {
           const hue = Math.floor(Math.random() * 360);
           card.style.backgroundColor = `hsl(${hue}, 70%, 90%)`;
           
-          // デバッグ用ログ（一時的に追加）
-          if (wish.isSupported) {
-            console.log(`Wish ${wish.id} is supported:`, wish.isSupported);
-          }
-          
           card.innerHTML = `
             <div class="wish-content">${escapeHTML(wish.wish)}</div>
             <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
@@ -345,62 +340,83 @@ document.addEventListener("DOMContentLoaded", () => {
   // 無限スクロール
   window.addEventListener("scroll", handleScroll);
 
-  // 応援ボタンのクリックイベント
+  // 応援ボタンのクリックイベント（楽観的UI実装）
   wishesList.addEventListener("click", async (e) => {
     if (e.target.classList.contains("support-button") || e.target.closest(".support-button")) {
       const button = e.target.closest(".support-button");
       const wishId = button.getAttribute("data-wish-id");
       
-      // ボタンを一時的に無効化
+      // 現在の状態を保存（ロールバック用）
+      const countElement = button.querySelector(".support-count");
+      const originalCount = parseInt(countElement.textContent) || 0;
+      const originalIsSupported = button.classList.contains("supported");
+      
+      // 楽観的UI更新：即座に状態を反映
+      let newCount, newIsSupported;
+      if (originalIsSupported) {
+        // 応援を取り消す場合
+        newCount = Math.max(0, originalCount - 1);
+        newIsSupported = false;
+      } else {
+        // 応援する場合
+        newCount = originalCount + 1;
+        newIsSupported = true;
+      }
+      
+      // UIを即座に更新
+      countElement.textContent = newCount;
+      if (newIsSupported) {
+        button.classList.add("supported");
+      } else {
+        button.classList.remove("supported");
+      }
+      
+      // ボタンを一時的に無効化（連続クリック防止）
       button.disabled = true;
       
       try {
-        // console.log("Support button clicked for wishId:", wishId);
-        
-        // 現在の応援状況を確認
-        const statusResponse = await fetch(`/api/wishes/${wishId}/support`);
-        const statusData = await statusResponse.json();
-        
-        // console.log("Current support status:", statusData);
-        
+        // API呼び出し
         let response;
-        if (statusData.isSupported) {
+        if (originalIsSupported) {
           // 応援を取り消す
-          // console.log("Removing support...");
           response = await fetch(`/api/wishes/${wishId}/support`, {
             method: "DELETE"
           });
         } else {
           // 応援する
-          // console.log("Adding support...");
           response = await fetch(`/api/wishes/${wishId}/support`, {
             method: "POST"
           });
         }
         
         if (response.ok) {
-          // console.log("Support action successful, updating UI...");
-          
-          // 応援状況を再取得してボタンを更新
+          // 成功時：サーバーから最新の状態を取得して同期
           const updatedStatusResponse = await fetch(`/api/wishes/${wishId}/support`);
           const updatedStatusData = await updatedStatusResponse.json();
           
-          // console.log("Updated support status:", updatedStatusData);
-          
-          const countElement = button.querySelector(".support-count");
+          // サーバーの状態で最終的に同期
           countElement.textContent = updatedStatusData.wish.supportCount || 0;
-          
-          // ボタンのスタイルを更新
           if (updatedStatusData.isSupported) {
             button.classList.add("supported");
           } else {
             button.classList.remove("supported");
           }
         } else {
-          console.error("Support action failed:", response.status);
+          throw new Error(`API call failed with status ${response.status}`);
         }
       } catch (error) {
         console.error("Error handling support action:", error);
+        
+        // 失敗時：元の状態にロールバック
+        countElement.textContent = originalCount;
+        if (originalIsSupported) {
+          button.classList.add("supported");
+        } else {
+          button.classList.remove("supported");
+        }
+        
+        // ユーザーにエラーを通知
+        showStatus("応援の処理中にエラーが発生しました。もう一度お試しください。", "error");
       } finally {
         // ボタンを再度有効化
         button.disabled = false;
