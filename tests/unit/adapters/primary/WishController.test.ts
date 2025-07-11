@@ -5,6 +5,9 @@ import { UpdateWishUseCase } from "../../../../src/application/usecases/UpdateWi
 import { GetWishBySessionUseCase } from "../../../../src/application/usecases/GetWishBySessionUseCase";
 import { GetLatestWishesUseCase } from "../../../../src/application/usecases/GetLatestWishesUseCase";
 import { GetUserWishUseCase } from "../../../../src/application/usecases/GetUserWishUseCase";
+import { SupportWishUseCase } from "../../../../src/application/usecases/SupportWishUseCase";
+import { UnsupportWishUseCase } from "../../../../src/application/usecases/UnsupportWishUseCase";
+import { GetWishSupportStatusUseCase } from "../../../../src/application/usecases/GetWishSupportStatusUseCase";
 
 // Express のリクエスト・レスポンスをモック
 const mockRequest = () => {
@@ -44,6 +47,18 @@ const mockGetUserWishUseCase = {
   execute: jest.fn(),
 };
 
+const mockSupportWishUseCase = {
+  execute: jest.fn(),
+};
+
+const mockUnsupportWishUseCase = {
+  execute: jest.fn(),
+};
+
+const mockGetWishSupportStatusUseCase = {
+  execute: jest.fn(),
+};
+
 describe("WishController", () => {
   let wishController: WishController;
 
@@ -55,7 +70,10 @@ describe("WishController", () => {
       mockUpdateWishUseCase as unknown as UpdateWishUseCase,
       mockGetWishBySessionUseCase as unknown as GetWishBySessionUseCase,
       mockGetLatestWishesUseCase as unknown as GetLatestWishesUseCase,
-      mockGetUserWishUseCase as unknown as GetUserWishUseCase
+      mockGetUserWishUseCase as unknown as GetUserWishUseCase,
+      mockSupportWishUseCase as unknown as SupportWishUseCase,
+      mockUnsupportWishUseCase as unknown as UnsupportWishUseCase,
+      mockGetWishSupportStatusUseCase as unknown as GetWishSupportStatusUseCase
     );
   });
 

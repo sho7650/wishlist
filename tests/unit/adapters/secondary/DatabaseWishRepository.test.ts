@@ -35,7 +35,7 @@ describe("DatabaseWishRepository", () => {
       // 検証
       expect(mockDbConnection.query).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO wishes"),
-        [wish.id, wish.name, wish.wish, wish.createdAt, wish.userId]
+        [wish.id, wish.name, wish.wish, wish.createdAt, wish.userId, wish.supportCount]
       );
     });
 
@@ -56,7 +56,7 @@ describe("DatabaseWishRepository", () => {
       // 検証
       expect(mockDbConnection.query).toHaveBeenCalledWith(
         expect.stringContaining("INSERT INTO wishes"),
-        [wish.id, null, wish.wish, wish.createdAt, wish.userId]
+        [wish.id, null, wish.wish, wish.createdAt, wish.userId, wish.supportCount]
       );
     });
   });

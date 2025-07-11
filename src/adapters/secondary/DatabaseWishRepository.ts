@@ -16,8 +16,6 @@ export class DatabaseWishRepository implements WishRepository {
   constructor(private db: DatabaseConnection) {}
 
   async save(wish: Wish, userId?: number): Promise<void> {
-    console.log("Saving wish:", wish);
-    console.log("User ID:", userId);
     // UPSERTクエリ (DBタイプに関わらず、ファクトリで適切に変換される)
     const query = `
       INSERT INTO wishes (id, name, wish, created_at, user_id, support_count)
@@ -86,11 +84,6 @@ export class DatabaseWishRepository implements WishRepository {
 
     const row = result.rows[0] as WishRow;
 
-    // デバッグ用ロギング
-    console.log("Row from database:", row);
-    console.log("created_at value:", row.created_at);
-    console.log("created_at type:", typeof row.created_at);
-
     // 安全なパース処理を行う
     const createdAt = this.parseDate(row.created_at);
 
@@ -135,25 +128,24 @@ export class DatabaseWishRepository implements WishRepository {
 
       // 有効な日付かチェック
       if (isNaN(parsedDate.getTime())) {
-        console.warn(`Invalid date value: ${dateValue}, using current date`);
         return new Date(); // 無効な日付の場合は現在時刻を使用
       }
 
       return parsedDate;
     } catch (error) {
-      console.error(`Error parsing date: ${dateValue}`, error);
       return new Date(); // エラーが発生した場合は現在時刻を使用
     }
   }
 
   async addSupport(wishId: string, sessionId?: string, userId?: number): Promise<void> {
     try {
-      console.log("Adding support for wishId:", wishId, "sessionId:", sessionId, "userId:", userId);
+      console.log('DEBUG: addSupport called with:', { wishId, sessionId, userId });
       
       // 既に応援済みかチェック
       const exists = await this.hasSupported(wishId, sessionId, userId);
+      console.log('DEBUG: Already supported?', exists);
       if (exists) {
-        console.log("Support already exists, skipping insert");
+        console.log('DEBUG: Already supported, returning early');
         return;
       }
       
@@ -162,110 +154,79 @@ export class DatabaseWishRepository implements WishRepository {
         INSERT INTO supports (wish_id, session_id, user_id)
         VALUES ($1, $2, $3)
       `;
-      const insertResult = await this.db.query(insertSupportQuery, [wishId, sessionId || null, userId || null]);
-      console.log("Insert support result:", insertResult);
-
-      // 応援数を取得
-      const countResult = await this.db.query(`
-        SELECT COUNT(*) as count FROM supports WHERE wish_id = $1
-      `, [wishId]);
-      const supportCount = parseInt(countResult.rows[0].count);
-      console.log("Support count from supports table:", supportCount);
+      console.log('DEBUG: Inserting support record');
+      await this.db.query(insertSupportQuery, [wishId, sessionId || null, userId || null]);
 
       // 応援数を更新
+      const countQuery = `SELECT COUNT(*) as count FROM supports WHERE wish_id = $1`;
+      const countResult = await this.db.query(countQuery, [wishId]);
+      const supportCount = parseInt(countResult.rows[0].count);
+      console.log('DEBUG: Current support count:', supportCount);
+      
       const updateCountQuery = `
         UPDATE wishes 
         SET support_count = $1
         WHERE id = $2
       `;
+      console.log('DEBUG: Updating support count to:', supportCount);
       const updateResult = await this.db.query(updateCountQuery, [supportCount, wishId]);
-      console.log("Update count result:", updateResult);
-
-      // 更新後のカウントを確認
-      const finalCountQuery = `SELECT support_count FROM wishes WHERE id = $1`;
-      const finalCountResult = await this.db.query(finalCountQuery, [wishId]);
-      console.log("Current support count:", finalCountResult.rows[0]?.support_count);
+      console.log('DEBUG: Update result:', updateResult);
+      console.log('DEBUG: Support count updated successfully');
 
     } catch (error) {
-      console.error("Error adding support:", error);
+      console.error('DEBUG: Error in addSupport:', error);
       throw error;
     }
   }
 
   async removeSupport(wishId: string, sessionId?: string, userId?: number): Promise<void> {
     try {
-      console.log("Removing support for wishId:", wishId, "sessionId:", sessionId, "userId:", userId);
-      
       // 応援記録を削除
-      let deleteSupportQuery = `
+      const deleteSupportQuery = `
         DELETE FROM supports 
-        WHERE wish_id = $1
+        WHERE wish_id = $1 
+          AND (user_id = $2 OR session_id = $3)
+          AND (user_id IS NOT NULL OR session_id IS NOT NULL)
       `;
-      const params: any[] = [wishId];
-      
-      if (userId) {
-        deleteSupportQuery += " AND user_id = $2";
-        params.push(userId);
-      } else if (sessionId) {
-        deleteSupportQuery += " AND session_id = $2";
-        params.push(sessionId);
-      }
-
-      const deleteResult = await this.db.query(deleteSupportQuery, params);
-      console.log("Delete support result:", deleteResult);
-
-      // 応援数を取得
-      const countResult = await this.db.query(`
-        SELECT COUNT(*) as count FROM supports WHERE wish_id = $1
-      `, [wishId]);
-      const supportCount = parseInt(countResult.rows[0].count);
-      console.log("Support count from supports table:", supportCount);
+      await this.db.query(deleteSupportQuery, [wishId, userId || null, sessionId || null]);
 
       // 応援数を更新
+      const countQuery = `SELECT COUNT(*) as count FROM supports WHERE wish_id = $1`;
+      const countResult = await this.db.query(countQuery, [wishId]);
+      const supportCount = parseInt(countResult.rows[0].count);
+      console.log('DEBUG: Current support count after removal:', supportCount);
+      
       const updateCountQuery = `
         UPDATE wishes 
         SET support_count = $1
         WHERE id = $2
       `;
-      const updateResult = await this.db.query(updateCountQuery, [supportCount, wishId]);
-      console.log("Update count result:", updateResult);
-
-      // 更新後のカウントを確認
-      const finalCountQuery = `SELECT support_count FROM wishes WHERE id = $1`;
-      const finalCountResult = await this.db.query(finalCountQuery, [wishId]);
-      console.log("Current support count after removal:", finalCountResult.rows[0]?.support_count);
+      await this.db.query(updateCountQuery, [supportCount, wishId]);
+      console.log('DEBUG: Support count updated after removal to:', supportCount);
 
     } catch (error) {
-      console.error("Error removing support:", error);
       throw error;
     }
   }
 
   async hasSupported(wishId: string, sessionId?: string, userId?: number): Promise<boolean> {
-    let query = `
+    console.log('DEBUG: hasSupported called with:', { wishId, sessionId, userId });
+    const query = `
       SELECT COUNT(*) as count
       FROM supports 
-      WHERE wish_id = $1
+      WHERE wish_id = $1 
+        AND (user_id = $2 OR session_id = $3)
+        AND (user_id IS NOT NULL OR session_id IS NOT NULL)
+      LIMIT 1
     `;
-    const params: any[] = [wishId];
-    
-    if (userId) {
-      query += " AND user_id = $2";
-      params.push(userId);
-    } else if (sessionId) {
-      query += " AND session_id = $2";
-      params.push(sessionId);
-    }
-
-    console.log("hasSupported query:", query);
-    console.log("hasSupported params:", params);
+    const params = [wishId, userId || null, sessionId || null];
+    console.log('DEBUG: Executing query:', query);
+    console.log('DEBUG: With params:', params);
 
     const result = await this.db.query(query, params);
-    const count = parseInt(result.rows[0].count);
-    const isSupported = count > 0;
-    
-    console.log("hasSupported result:", { count, isSupported });
-    
+    console.log('DEBUG: Query result:', result.rows[0]);
+    const isSupported = parseInt(result.rows[0].count) > 0;
+    console.log('DEBUG: isSupported result:', isSupported);
     return isSupported;
   }
 }
