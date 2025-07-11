@@ -21,7 +21,6 @@ export class PostgresConnection implements DatabaseConnection {
         min: 1, // 最小接続数を保持
         idleTimeoutMillis: 10000, // アイドル時間を短縮
         connectionTimeoutMillis: 5000, // 接続タイムアウトを延長
-        acquireTimeoutMillis: 10000, // 接続取得タイムアウト
       });
     } else {
       // 開発環境の接続設定
