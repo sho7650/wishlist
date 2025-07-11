@@ -4,6 +4,7 @@ export interface WishProps {
   name?: string;
   wish: string;
   createdAt?: Date | string; // 文字列も受け付ける
+  supportCount?: number; // 応援数を追加
 }
 
 export class Wish {
@@ -16,6 +17,7 @@ export class Wish {
   readonly name?: string;
   readonly wish: string;
   readonly createdAt: Date;
+  readonly supportCount: number; // 応援数を追加
 
   constructor(props: WishProps) {
     // 👇 --- バリデーションを追加 ---
@@ -38,6 +40,7 @@ export class Wish {
     this.name = props.name;
     this.wish = props.wish;
     this.userId = props.userId;
+    this.supportCount = props.supportCount || 0;
 
     // createdAtが文字列なら日付オブジェクトに変換
     if (typeof props.createdAt === "string") {
@@ -50,12 +53,14 @@ export class Wish {
   update(name?: string, wish?: string): Wish {
     return new Wish({
       id: this.id,
+      userId: this.userId,
       // name は undefined の場合のみ元の値を採用
       name: name !== undefined ? name : this.name,
       // wish も undefined の場合のみ元の値を採用
       // これにより、空文字 "" はそのままコンストラクタに渡される
       wish: wish !== undefined ? wish : this.wish,
       createdAt: this.createdAt,
+      supportCount: this.supportCount,
     });
   }
 }

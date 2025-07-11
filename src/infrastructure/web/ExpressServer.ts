@@ -112,6 +112,11 @@ export class ExpressServer implements WebServer {
     this.app.get("/api/wishes/current", this.wishController.getCurrentWish);
     this.app.get("/api/wishes", this.wishController.getLatestWishes);
     this.app.get("/api/user/wish", this.wishController.getUserWish);
+    
+    // 応援機能のルート
+    this.app.post("/api/wishes/:wishId/support", this.wishController.supportWish);
+    this.app.delete("/api/wishes/:wishId/support", this.wishController.unsupportWish);
+    this.app.get("/api/wishes/:wishId/support", this.wishController.getWishSupportStatus);
 
     this.app.get(/.*/, (req, res, next) => {
       if (req.path.startsWith("/api/")) {

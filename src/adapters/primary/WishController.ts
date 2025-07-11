@@ -4,6 +4,9 @@ import { UpdateWishUseCase } from "../../application/usecases/UpdateWishUseCase"
 import { GetWishBySessionUseCase } from "../../application/usecases/GetWishBySessionUseCase";
 import { GetLatestWishesUseCase } from "../../application/usecases/GetLatestWishesUseCase";
 import { GetUserWishUseCase } from "../../application/usecases/GetUserWishUseCase";
+import { SupportWishUseCase } from "../../application/usecases/SupportWishUseCase";
+import { UnsupportWishUseCase } from "../../application/usecases/UnsupportWishUseCase";
+import { GetWishSupportStatusUseCase } from "../../application/usecases/GetWishSupportStatusUseCase";
 
 export class WishController {
   constructor(
@@ -11,7 +14,10 @@ export class WishController {
     private updateWishUseCase: UpdateWishUseCase,
     private getWishBySessionUseCase: GetWishBySessionUseCase,
     private getLatestWishesUseCase: GetLatestWishesUseCase,
-    private getUserWishUseCase: GetUserWishUseCase
+    private getUserWishUseCase: GetUserWishUseCase,
+    private supportWishUseCase: SupportWishUseCase,
+    private unsupportWishUseCase: UnsupportWishUseCase,
+    private getWishSupportStatusUseCase: GetWishSupportStatusUseCase
   ) {}
 
   public createWish = async (req: Request, res: Response): Promise<void> => {
@@ -122,6 +128,82 @@ export class WishController {
       const wish = await this.getUserWishUseCase.execute(userId, sessionId);
 
       res.status(200).json({ wish });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
+      res.status(400).json({ error: errorMessage });
+    }
+  };
+
+  public supportWish = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { wishId } = req.params;
+      const sessionId = req.cookies.sessionId;
+      const userId = req.user?.id;
+
+      if (!wishId) {
+        res.status(400).json({ error: "願い事IDが必要です" });
+        return;
+      }
+
+      const result = await this.supportWishUseCase.execute(wishId, sessionId, userId);
+
+      if (result.alreadySupported) {
+        res.status(400).json({ error: "既に応援済みです" });
+        return;
+      }
+
+      res.status(200).json({ message: "応援しました", success: true });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
+      res.status(400).json({ error: errorMessage });
+    }
+  };
+
+  public unsupportWish = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { wishId } = req.params;
+      const sessionId = req.cookies.sessionId;
+      const userId = req.user?.id;
+
+      if (!wishId) {
+        res.status(400).json({ error: "願い事IDが必要です" });
+        return;
+      }
+
+      const result = await this.unsupportWishUseCase.execute(wishId, sessionId, userId);
+
+      if (!result.wasSupported) {
+        res.status(400).json({ error: "応援していません" });
+        return;
+      }
+
+      res.status(200).json({ message: "応援を取り消しました", success: true });
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "不明なエラーが発生しました";
+      res.status(400).json({ error: errorMessage });
+    }
+  };
+
+  public getWishSupportStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { wishId } = req.params;
+      const sessionId = req.cookies.sessionId;
+      const userId = req.user?.id;
+
+      if (!wishId) {
+        res.status(400).json({ error: "願い事IDが必要です" });
+        return;
+      }
+
+      const result = await this.getWishSupportStatusUseCase.execute(wishId, sessionId, userId);
+
+      res.status(200).json({
+        isSupported: result.isSupported,
+        wish: result.wish,
+      });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";

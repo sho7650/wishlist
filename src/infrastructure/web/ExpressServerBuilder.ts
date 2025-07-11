@@ -8,6 +8,9 @@ import {
   GetWishBySessionUseCase,
   GetLatestWishesUseCase,
   GetUserWishUseCase,
+  SupportWishUseCase,
+  UnsupportWishUseCase,
+  GetWishSupportStatusUseCase,
 } from "../../application/usecases"; // usecases/index.ts などでまとめると綺麗
 import { WishRepository } from "../../domain/repositories/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
@@ -29,13 +32,19 @@ export class ExpressServerBuilder implements ServerBuilderStrategy {
     const getWishBySessionUseCase = new GetWishBySessionUseCase(wishRepository);
     const getLatestWishesUseCase = new GetLatestWishesUseCase(wishRepository);
     const getUserWishUseCase = new GetUserWishUseCase(wishRepository);
+    const supportWishUseCase = new SupportWishUseCase(wishRepository);
+    const unsupportWishUseCase = new UnsupportWishUseCase(wishRepository);
+    const getWishSupportStatusUseCase = new GetWishSupportStatusUseCase(wishRepository);
 
     const wishController = new WishController(
       createWishUseCase,
       updateWishUseCase,
       getWishBySessionUseCase,
       getLatestWishesUseCase,
-      getUserWishUseCase
+      getUserWishUseCase,
+      supportWishUseCase,
+      unsupportWishUseCase,
+      getWishSupportStatusUseCase
     );
 
     return new ExpressServer(dbConnection, wishController);

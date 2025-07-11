@@ -50,11 +50,22 @@ export class PostgresConnection implements DatabaseConnection {
   async initializeDatabase(): Promise<void> {
     // テーブル作成クエリ
     const createTablesQuery = `
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        google_id TEXT UNIQUE NOT NULL,
+        display_name TEXT NOT NULL,
+        email TEXT,
+        picture TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS wishes (
         id UUID PRIMARY KEY,
         name TEXT,
         wish TEXT NOT NULL,
-        created_at TIMESTAMP NOT NULL
+        created_at TIMESTAMP NOT NULL,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        support_count INTEGER NOT NULL DEFAULT 0
       );
       
       CREATE TABLE IF NOT EXISTS sessions (
@@ -62,6 +73,20 @@ export class PostgresConnection implements DatabaseConnection {
         wish_id UUID NOT NULL REFERENCES wishes(id),
         created_at TIMESTAMP NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS supports (
+        id SERIAL PRIMARY KEY,
+        wish_id UUID NOT NULL REFERENCES wishes(id) ON DELETE CASCADE,
+        session_id TEXT,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_session 
+      ON supports(wish_id, session_id) WHERE session_id IS NOT NULL;
+      
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_user 
+      ON supports(wish_id, user_id) WHERE user_id IS NOT NULL;
     `;
 
     await this.query(createTablesQuery, []);

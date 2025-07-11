@@ -9,6 +9,7 @@ interface WishRow {
   wish: string;
   created_at: string | Date; // 文字列か日付を許容
   user_id: number | null;
+  support_count: number;
 }
 
 export class DatabaseWishRepository implements WishRepository {
@@ -19,10 +20,10 @@ export class DatabaseWishRepository implements WishRepository {
     console.log("User ID:", userId);
     // UPSERTクエリ (DBタイプに関わらず、ファクトリで適切に変換される)
     const query = `
-      INSERT INTO wishes (id, name, wish, created_at, user_id)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO wishes (id, name, wish, created_at, user_id, support_count)
+      VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (id) 
-      DO UPDATE SET name = $2, wish = $3, user_id = $5
+      DO UPDATE SET name = $2, wish = $3, user_id = $5, support_count = $6
     `;
     await this.db.query(query, [
       wish.id,
@@ -30,6 +31,7 @@ export class DatabaseWishRepository implements WishRepository {
       wish.wish,
       wish.createdAt,
       userId || null, // ユーザーIDがなければNULL
+      wish.supportCount,
     ]);
   }
 
@@ -45,6 +47,7 @@ export class DatabaseWishRepository implements WishRepository {
       wish: result.rows[0].wish,
       createdAt: result.rows[0].created_at,
       userId: result.rows[0].user_id,
+      supportCount: result.rows[0].support_count || 0,
     });
   }
 
@@ -64,6 +67,7 @@ export class DatabaseWishRepository implements WishRepository {
       wish: row.wish,
       createdAt: this.parseDate(row.created_at),
       userId: row.user_id || undefined, // ユーザーIDがなければundefined
+      supportCount: row.support_count || 0,
     });
   }
 
@@ -96,6 +100,7 @@ export class DatabaseWishRepository implements WishRepository {
       wish: row.wish,
       createdAt: createdAt,
       userId: row.user_id || undefined,
+      supportCount: row.support_count || 0,
     });
   }
 
@@ -113,6 +118,7 @@ export class DatabaseWishRepository implements WishRepository {
           wish: row.wish,
           createdAt: this.parseDate(row.created_at),
           userId: row.user_id || undefined, // ユーザーIDがなければundefined
+          supportCount: row.support_count || 0,
         })
     );
   }
@@ -138,5 +144,128 @@ export class DatabaseWishRepository implements WishRepository {
       console.error(`Error parsing date: ${dateValue}`, error);
       return new Date(); // エラーが発生した場合は現在時刻を使用
     }
+  }
+
+  async addSupport(wishId: string, sessionId?: string, userId?: number): Promise<void> {
+    try {
+      console.log("Adding support for wishId:", wishId, "sessionId:", sessionId, "userId:", userId);
+      
+      // 既に応援済みかチェック
+      const exists = await this.hasSupported(wishId, sessionId, userId);
+      if (exists) {
+        console.log("Support already exists, skipping insert");
+        return;
+      }
+      
+      // 応援記録を挿入
+      const insertSupportQuery = `
+        INSERT INTO supports (wish_id, session_id, user_id)
+        VALUES ($1, $2, $3)
+      `;
+      const insertResult = await this.db.query(insertSupportQuery, [wishId, sessionId || null, userId || null]);
+      console.log("Insert support result:", insertResult);
+
+      // 応援数を取得
+      const countResult = await this.db.query(`
+        SELECT COUNT(*) as count FROM supports WHERE wish_id = $1
+      `, [wishId]);
+      const supportCount = parseInt(countResult.rows[0].count);
+      console.log("Support count from supports table:", supportCount);
+
+      // 応援数を更新
+      const updateCountQuery = `
+        UPDATE wishes 
+        SET support_count = $1
+        WHERE id = $2
+      `;
+      const updateResult = await this.db.query(updateCountQuery, [supportCount, wishId]);
+      console.log("Update count result:", updateResult);
+
+      // 更新後のカウントを確認
+      const finalCountQuery = `SELECT support_count FROM wishes WHERE id = $1`;
+      const finalCountResult = await this.db.query(finalCountQuery, [wishId]);
+      console.log("Current support count:", finalCountResult.rows[0]?.support_count);
+
+    } catch (error) {
+      console.error("Error adding support:", error);
+      throw error;
+    }
+  }
+
+  async removeSupport(wishId: string, sessionId?: string, userId?: number): Promise<void> {
+    try {
+      console.log("Removing support for wishId:", wishId, "sessionId:", sessionId, "userId:", userId);
+      
+      // 応援記録を削除
+      let deleteSupportQuery = `
+        DELETE FROM supports 
+        WHERE wish_id = $1
+      `;
+      const params: any[] = [wishId];
+      
+      if (userId) {
+        deleteSupportQuery += " AND user_id = $2";
+        params.push(userId);
+      } else if (sessionId) {
+        deleteSupportQuery += " AND session_id = $2";
+        params.push(sessionId);
+      }
+
+      const deleteResult = await this.db.query(deleteSupportQuery, params);
+      console.log("Delete support result:", deleteResult);
+
+      // 応援数を取得
+      const countResult = await this.db.query(`
+        SELECT COUNT(*) as count FROM supports WHERE wish_id = $1
+      `, [wishId]);
+      const supportCount = parseInt(countResult.rows[0].count);
+      console.log("Support count from supports table:", supportCount);
+
+      // 応援数を更新
+      const updateCountQuery = `
+        UPDATE wishes 
+        SET support_count = $1
+        WHERE id = $2
+      `;
+      const updateResult = await this.db.query(updateCountQuery, [supportCount, wishId]);
+      console.log("Update count result:", updateResult);
+
+      // 更新後のカウントを確認
+      const finalCountQuery = `SELECT support_count FROM wishes WHERE id = $1`;
+      const finalCountResult = await this.db.query(finalCountQuery, [wishId]);
+      console.log("Current support count after removal:", finalCountResult.rows[0]?.support_count);
+
+    } catch (error) {
+      console.error("Error removing support:", error);
+      throw error;
+    }
+  }
+
+  async hasSupported(wishId: string, sessionId?: string, userId?: number): Promise<boolean> {
+    let query = `
+      SELECT COUNT(*) as count
+      FROM supports 
+      WHERE wish_id = $1
+    `;
+    const params: any[] = [wishId];
+    
+    if (userId) {
+      query += " AND user_id = $2";
+      params.push(userId);
+    } else if (sessionId) {
+      query += " AND session_id = $2";
+      params.push(sessionId);
+    }
+
+    console.log("hasSupported query:", query);
+    console.log("hasSupported params:", params);
+
+    const result = await this.db.query(query, params);
+    const count = parseInt(result.rows[0].count);
+    const isSupported = count > 0;
+    
+    console.log("hasSupported result:", { count, isSupported });
+    
+    return isSupported;
   }
 }
