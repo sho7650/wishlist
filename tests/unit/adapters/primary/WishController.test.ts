@@ -272,6 +272,152 @@ describe("WishController", () => {
       expect(res.json).toHaveBeenCalledWith({ wishes: mockWishes });
     });
 
-    // 他のケースも同様にテスト
+    it("should get latest wishes with sessionId and userId from cookies and user", async () => {
+      // モックの設定
+      const req = mockRequest();
+      req.query = { limit: "5", offset: "10" };
+      req.cookies = { sessionId: "test-session-123" };
+      req.user = { id: 456 };
+
+      const res = mockResponse();
+
+      const mockWishes = [
+        new Wish({ id: "1", wish: "願い事1", createdAt: new Date(), isSupported: true }),
+      ];
+
+      mockGetLatestWishesUseCase.executeWithSupportStatus.mockResolvedValue(mockWishes);
+
+      // 実行
+      await wishController.getLatestWishes(req, res);
+
+      // 検証
+      expect(mockGetLatestWishesUseCase.executeWithSupportStatus).toHaveBeenCalledWith(5, 10, "test-session-123", 456);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ wishes: mockWishes });
+    });
+
+    it("should handle errors and return 400", async () => {
+      // モックの設定
+      const req = mockRequest();
+      req.query = { limit: "20", offset: "0" };
+
+      const res = mockResponse();
+
+      const error = new Error("Database error");
+      mockGetLatestWishesUseCase.executeWithSupportStatus.mockRejectedValue(error);
+
+      // 実行
+      await wishController.getLatestWishes(req, res);
+
+      // 検証
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "Database error" });
+    });
+
+    it("should handle unknown errors and return generic message", async () => {
+      // モックの設定
+      const req = mockRequest();
+      req.query = {};
+
+      const res = mockResponse();
+
+      // Error以外のオブジェクトを投げる
+      mockGetLatestWishesUseCase.executeWithSupportStatus.mockRejectedValue("Unknown error");
+
+      // 実行
+      await wishController.getLatestWishes(req, res);
+
+      // 検証
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "不明なエラーが発生しました" });
+    });
+  });
+
+  describe("getUserWish", () => {
+    it("should get user wish when user is authenticated", async () => {
+      // モックの設定
+      const req = mockRequest();
+      req.user = { id: 123 };
+      req.cookies = { sessionId: "test-session" };
+
+      const res = mockResponse();
+
+      const mockWish = new Wish({
+        id: "user-wish-id",
+        wish: "User's wish",
+        userId: 123,
+        createdAt: new Date(),
+      });
+
+      mockGetUserWishUseCase.execute.mockResolvedValue(mockWish);
+
+      // 実行
+      await wishController.getUserWish(req, res);
+
+      // 検証
+      expect(mockGetUserWishUseCase.execute).toHaveBeenCalledWith(123, "test-session");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ wish: mockWish });
+    });
+
+    it("should get user wish with sessionId only when user is not authenticated", async () => {
+      // モックの設定
+      const req = mockRequest();
+      req.cookies = { sessionId: "test-session" };
+
+      const res = mockResponse();
+
+      const mockWish = new Wish({
+        id: "session-wish-id",
+        wish: "Session wish",
+        createdAt: new Date(),
+      });
+
+      mockGetUserWishUseCase.execute.mockResolvedValue(mockWish);
+
+      // 実行
+      await wishController.getUserWish(req, res);
+
+      // 検證
+      expect(mockGetUserWishUseCase.execute).toHaveBeenCalledWith(undefined, "test-session");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ wish: mockWish });
+    });
+
+    it("should return 404 when no wish is found", async () => {
+      // モックの設定
+      const req = mockRequest();
+      req.user = { id: 123 };
+      req.cookies = { sessionId: "test-session" };
+
+      const res = mockResponse();
+
+      mockGetUserWishUseCase.execute.mockResolvedValue(null);
+
+      // 実行
+      await wishController.getUserWish(req, res);
+
+      // 検証
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ error: "願い事が見つかりません" });
+    });
+
+    it("should handle errors in getUserWish", async () => {
+      // モックの設定
+      const req = mockRequest();
+      req.user = { id: 123 };
+
+      const res = mockResponse();
+
+      const error = new Error("Database connection failed");
+      mockGetUserWishUseCase.execute.mockRejectedValue(error);
+
+      // 実行
+      await wishController.getUserWish(req, res);
+
+      // 検証
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "Database connection failed" });
+    });
   });
 });

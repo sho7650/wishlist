@@ -133,6 +133,11 @@ export class WishController {
 
       const wish = await this.getUserWishUseCase.execute(userId, sessionId);
 
+      if (!wish) {
+        res.status(404).json({ error: "願い事が見つかりません" });
+        return;
+      }
+
       res.status(200).json({ wish });
     } catch (error: unknown) {
       const errorMessage =

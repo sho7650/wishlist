@@ -1,5 +1,7 @@
 export class Logger {
-  private static isProduction = process.env.NODE_ENV === 'production';
+  private static get isProduction(): boolean {
+    return process.env.NODE_ENV === 'production';
+  }
 
   static log(message: string, ...args: any[]): void {
     if (!this.isProduction) {
