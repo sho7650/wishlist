@@ -8,6 +8,7 @@ import { GetUserWishUseCase } from "../../application/usecases/GetUserWishUseCas
 import { SupportWishUseCase } from "../../application/usecases/SupportWishUseCase";
 import { UnsupportWishUseCase } from "../../application/usecases/UnsupportWishUseCase";
 import { GetWishSupportStatusUseCase } from "../../application/usecases/GetWishSupportStatusUseCase";
+import { v4 as uuidv4 } from 'uuid';
 interface WishRequestBody {
   name?: string;
   wish?: string;
@@ -24,6 +25,30 @@ export class KoaWishAdapter {
     private unsupportWishUseCase: UnsupportWishUseCase,
     private getWishSupportStatusUseCase: GetWishSupportStatusUseCase
   ) {}
+
+  /**
+   * 匿名ユーザーのセッションIDを確保する
+   * 既存のセッションIDがある場合はそれを使用し、無い場合は新しく生成する
+   */
+  private ensureSessionId(ctx: Koa.Context, userId?: number): string {
+    let sessionId = ctx.cookies.get("sessionId");
+    
+    // 匿名ユーザーでセッションIDが無い場合は新しいセッションIDを生成
+    if (!sessionId && !userId) {
+      sessionId = uuidv4();
+      
+      // セッションIDをクッキーに設定
+      ctx.cookies.set("sessionId", sessionId, {
+        httpOnly: true,
+        maxAge: 365 * 24 * 60 * 60 * 1000, // 1年
+        sameSite: "strict" as const,
+        secure: false, // 開発環境ではHTTPでも動作するように
+      });
+      
+    }
+    
+    return sessionId || "";
+  }
 
   public createWish = async (ctx: Koa.Context): Promise<void> => {
     try {
@@ -111,7 +136,19 @@ export class KoaWishAdapter {
     try {
       const limit = parseInt(ctx.query.limit as string, 10) || 20;
       const offset = parseInt(ctx.query.offset as string, 10) || 0;
-      const wishes = await this.getLatestWishesUseCase.execute(limit, offset);
+      const userId = ctx.state.user?.id;
+      
+      // セッションIDを確保
+      const sessionId = this.ensureSessionId(ctx, userId);
+      
+      // 応援状況を含めて取得
+      const wishes = await this.getLatestWishesUseCase.executeWithSupportStatus(
+        limit, 
+        offset, 
+        sessionId, 
+        userId
+      );
+      
       ctx.status = 200;
       ctx.body = { wishes };
     } catch (error: unknown) {
@@ -140,25 +177,35 @@ export class KoaWishAdapter {
   public supportWish = async (ctx: Koa.Context): Promise<void> => {
     try {
       const { wishId } = ctx.params;
-      const sessionId = ctx.cookies.get("sessionId");
       const userId = ctx.state.user?.id;
-
+      
       if (!wishId) {
         ctx.status = 400;
         ctx.body = { error: "願い事IDが必要です" };
         return;
       }
 
+      // セッションIDを確保
+      const sessionId = this.ensureSessionId(ctx, userId);
+
       const result = await this.supportWishUseCase.execute(wishId, sessionId, userId);
 
       if (result.alreadySupported) {
-        ctx.status = 400;
-        ctx.body = { error: "既に応援済みです" };
+        ctx.status = 200;
+        ctx.body = { 
+          message: "既に応援済みです", 
+          success: true, 
+          alreadySupported: true 
+        };
         return;
       }
 
       ctx.status = 200;
-      ctx.body = { message: "応援しました", success: true };
+      ctx.body = { 
+        message: "応援しました", 
+        success: true, 
+        alreadySupported: false 
+      };
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";
@@ -170,14 +217,16 @@ export class KoaWishAdapter {
   public unsupportWish = async (ctx: Koa.Context): Promise<void> => {
     try {
       const { wishId } = ctx.params;
-      const sessionId = ctx.cookies.get("sessionId");
       const userId = ctx.state.user?.id;
-
+      
       if (!wishId) {
         ctx.status = 400;
         ctx.body = { error: "願い事IDが必要です" };
         return;
       }
+
+      // セッションIDを確保
+      const sessionId = this.ensureSessionId(ctx, userId);
 
       const result = await this.unsupportWishUseCase.execute(wishId, sessionId, userId);
 
@@ -200,14 +249,16 @@ export class KoaWishAdapter {
   public getWishSupportStatus = async (ctx: Koa.Context): Promise<void> => {
     try {
       const { wishId } = ctx.params;
-      const sessionId = ctx.cookies.get("sessionId");
       const userId = ctx.state.user?.id;
-
+      
       if (!wishId) {
         ctx.status = 400;
         ctx.body = { error: "願い事IDが必要です" };
         return;
       }
+
+      // セッションIDを確保
+      const sessionId = this.ensureSessionId(ctx, userId);
 
       const result = await this.getWishSupportStatusUseCase.execute(wishId, sessionId, userId);
 

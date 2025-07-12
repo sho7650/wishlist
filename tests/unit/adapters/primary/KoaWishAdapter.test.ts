@@ -203,29 +203,52 @@ describe("KoaWishAdapter", () => {
   });
 
   describe("getLatestWishes", () => {
-    it("should get latest wishes", async () => {
+    it("should get latest wishes with support status", async () => {
       (mockContext as any).query = { limit: "10", offset: "20" };
+      (mockContext as any).cookies.get.mockReturnValue("test-session");
+      (mockContext as any).state.user = { id: 123 };
       
       const mockWishes = [
-        new Wish({ id: "1", wish: "Test wish 1", createdAt: new Date() }),
-        new Wish({ id: "2", wish: "Test wish 2", createdAt: new Date() }),
+        new Wish({ id: "1", wish: "Test wish 1", createdAt: new Date(), isSupported: true }),
+        new Wish({ id: "2", wish: "Test wish 2", createdAt: new Date(), isSupported: false }),
       ];
-      mockGetLatestWishesUseCase.execute.mockResolvedValue(mockWishes);
+      mockGetLatestWishesUseCase.executeWithSupportStatus.mockResolvedValue(mockWishes);
 
       await koaWishAdapter.getLatestWishes(mockContext);
 
-      expect(mockGetLatestWishesUseCase.execute).toHaveBeenCalledWith(10, 20);
+      expect(mockGetLatestWishesUseCase.executeWithSupportStatus).toHaveBeenCalledWith(10, 20, "test-session", 123);
       expect((mockContext as any).status).toBe(200);
       expect((mockContext as any).body).toEqual({ wishes: mockWishes });
     });
 
     it("should use default values for limit and offset", async () => {
       (mockContext as any).query = {};
-      mockGetLatestWishesUseCase.execute.mockResolvedValue([]);
+      (mockContext as any).cookies.get.mockReturnValue("test-session");
+      mockGetLatestWishesUseCase.executeWithSupportStatus.mockResolvedValue([]);
 
       await koaWishAdapter.getLatestWishes(mockContext);
 
-      expect(mockGetLatestWishesUseCase.execute).toHaveBeenCalledWith(20, 0);
+      expect(mockGetLatestWishesUseCase.executeWithSupportStatus).toHaveBeenCalledWith(20, 0, "test-session", undefined);
+    });
+
+    it("should generate session ID for anonymous users", async () => {
+      (mockContext as any).query = {};
+      (mockContext as any).cookies.get.mockReturnValue(undefined); // No existing session
+      (mockContext as any).state.user = undefined; // Anonymous user
+      mockGetLatestWishesUseCase.executeWithSupportStatus.mockResolvedValue([]);
+
+      await koaWishAdapter.getLatestWishes(mockContext);
+
+      expect((mockContext as any).cookies.set).toHaveBeenCalledWith(
+        "sessionId", 
+        expect.any(String), 
+        {
+          httpOnly: true,
+          maxAge: 365 * 24 * 60 * 60 * 1000,
+          sameSite: "strict",
+          secure: false,
+        }
+      );
     });
   });
 
@@ -269,18 +292,44 @@ describe("KoaWishAdapter", () => {
       expect((mockContext as any).status).toBe(200);
       expect((mockContext as any).body).toEqual({
         message: "応援しました",
-        success: true
+        success: true,
+        alreadySupported: false
       });
     });
 
     it("should handle already supported wish", async () => {
       (mockContext as any).params = { wishId: "wish123" };
+      (mockContext as any).cookies.get.mockReturnValue("session123");
       mockSupportWishUseCase.execute.mockResolvedValue({ alreadySupported: true });
 
       await koaWishAdapter.supportWish(mockContext);
 
-      expect((mockContext as any).status).toBe(400);
-      expect((mockContext as any).body).toEqual({ error: "既に応援済みです" });
+      expect((mockContext as any).status).toBe(200);
+      expect((mockContext as any).body).toEqual({ 
+        message: "既に応援済みです", 
+        success: true, 
+        alreadySupported: true 
+      });
+    });
+
+    it("should generate session ID for anonymous users", async () => {
+      (mockContext as any).params = { wishId: "wish123" };
+      (mockContext as any).cookies.get.mockReturnValue(undefined); // No existing session
+      (mockContext as any).state.user = undefined; // Anonymous user
+      mockSupportWishUseCase.execute.mockResolvedValue({ alreadySupported: false });
+
+      await koaWishAdapter.supportWish(mockContext);
+
+      expect((mockContext as any).cookies.set).toHaveBeenCalledWith(
+        "sessionId", 
+        expect.any(String), 
+        {
+          httpOnly: true,
+          maxAge: 365 * 24 * 60 * 60 * 1000,
+          sameSite: "strict",
+          secure: false,
+        }
+      );
     });
 
     it("should return 400 when wishId is missing", async () => {
@@ -313,12 +362,33 @@ describe("KoaWishAdapter", () => {
 
     it("should handle wish that was not supported", async () => {
       (mockContext as any).params = { wishId: "wish123" };
+      (mockContext as any).cookies.get.mockReturnValue("session123");
       mockUnsupportWishUseCase.execute.mockResolvedValue({ wasSupported: false });
 
       await koaWishAdapter.unsupportWish(mockContext);
 
       expect((mockContext as any).status).toBe(400);
       expect((mockContext as any).body).toEqual({ error: "応援していません" });
+    });
+
+    it("should generate session ID for anonymous users", async () => {
+      (mockContext as any).params = { wishId: "wish123" };
+      (mockContext as any).cookies.get.mockReturnValue(undefined); // No existing session
+      (mockContext as any).state.user = undefined; // Anonymous user
+      mockUnsupportWishUseCase.execute.mockResolvedValue({ wasSupported: true });
+
+      await koaWishAdapter.unsupportWish(mockContext);
+
+      expect((mockContext as any).cookies.set).toHaveBeenCalledWith(
+        "sessionId", 
+        expect.any(String), 
+        {
+          httpOnly: true,
+          maxAge: 365 * 24 * 60 * 60 * 1000,
+          sameSite: "strict",
+          secure: false,
+        }
+      );
     });
   });
 
@@ -340,6 +410,29 @@ describe("KoaWishAdapter", () => {
         isSupported: true,
         wish: mockWish
       });
+    });
+
+    it("should generate session ID for anonymous users", async () => {
+      (mockContext as any).params = { wishId: "wish123" };
+      (mockContext as any).cookies.get.mockReturnValue(undefined); // No existing session
+      (mockContext as any).state.user = undefined; // Anonymous user
+
+      const mockWish = new Wish({ id: "wish123", wish: "Test wish", createdAt: new Date() });
+      const mockResult = { isSupported: false, wish: mockWish };
+      mockGetWishSupportStatusUseCase.execute.mockResolvedValue(mockResult);
+
+      await koaWishAdapter.getWishSupportStatus(mockContext);
+
+      expect((mockContext as any).cookies.set).toHaveBeenCalledWith(
+        "sessionId", 
+        expect.any(String), 
+        {
+          httpOnly: true,
+          maxAge: 365 * 24 * 60 * 60 * 1000,
+          sameSite: "strict",
+          secure: false,
+        }
+      );
     });
 
     it("should return 400 when wishId is missing", async () => {
