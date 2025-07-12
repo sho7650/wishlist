@@ -95,4 +95,79 @@ describe("CreateWishUseCase", () => {
       expect.any(String)
     );
   });
+
+  it("should throw error when authenticated user already has a wish", async () => {
+    const existingWish = new Wish({
+      id: "existing-id",
+      wish: "Existing wish",
+      createdAt: new Date(),
+    });
+    
+    mockWishRepository.findByUserId.mockResolvedValue(existingWish);
+
+    await expect(
+      createWishUseCase.execute("Test User", "New wish", undefined, 123)
+    ).rejects.toThrow("既に投稿済みです。");
+
+    expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(123);
+    expect(mockWishRepository.save).not.toHaveBeenCalled();
+  });
+
+  it("should create wish when authenticated user has no existing wish", async () => {
+    mockWishRepository.findByUserId.mockResolvedValue(null);
+    mockWishRepository.save.mockResolvedValue(undefined);
+    mockSessionService.generateSessionId.mockReturnValue("generated-session");
+    mockSessionService.linkSessionToWish.mockResolvedValue(undefined);
+
+    const result = await createWishUseCase.execute("Test User", "Test wish", undefined, 123);
+
+    expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(123);
+    expect(mockWishRepository.save).toHaveBeenCalledWith(expect.any(Wish), 123);
+    expect(result.sessionId).toBe("generated-session");
+  });
+
+  it("should handle empty name", async () => {
+    mockWishRepository.save.mockResolvedValue(undefined);
+    mockSessionService.generateSessionId.mockReturnValue("new-session");
+    mockSessionService.linkSessionToWish.mockResolvedValue(undefined);
+
+    const result = await createWishUseCase.execute(undefined, "Test wish without name");
+
+    expect(mockWishRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: undefined,
+        wish: "Test wish without name"
+      }),
+      undefined
+    );
+    expect(result.wish.name).toBeUndefined();
+  });
+
+  it("should generate new session when neither userId nor sessionId provided", async () => {
+    mockWishRepository.save.mockResolvedValue(undefined);
+    mockSessionService.generateSessionId.mockReturnValue("auto-generated-session");
+    mockSessionService.linkSessionToWish.mockResolvedValue(undefined);
+
+    const result = await createWishUseCase.execute("Test User", "Test wish");
+
+    expect(mockSessionService.generateSessionId).toHaveBeenCalled();
+    expect(result.sessionId).toBe("auto-generated-session");
+  });
+
+  it("should prioritize userId check over sessionId check", async () => {
+    const existingWish = new Wish({
+      id: "existing-id",
+      wish: "Existing wish",
+      createdAt: new Date(),
+    });
+    
+    mockWishRepository.findByUserId.mockResolvedValue(existingWish);
+
+    await expect(
+      createWishUseCase.execute("Test User", "New wish", "some-session", 123)
+    ).rejects.toThrow("既に投稿済みです。");
+
+    expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(123);
+    expect(mockWishRepository.findBySessionId).not.toHaveBeenCalled();
+  });
 });

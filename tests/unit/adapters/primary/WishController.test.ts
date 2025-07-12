@@ -420,4 +420,281 @@ describe("WishController", () => {
       expect(res.json).toHaveBeenCalledWith({ error: "Database connection failed" });
     });
   });
+
+  describe("updateWish", () => {
+    it("should update wish successfully when user is authenticated", async () => {
+      const req = mockRequest();
+      req.body = { name: "Updated Name", wish: "Updated wish" };
+      req.user = { id: 123 };
+      req.cookies = { sessionId: "test-session" };
+
+      const res = mockResponse();
+      mockUpdateWishUseCase.execute.mockResolvedValue(undefined);
+
+      await wishController.updateWish(req, res);
+
+      expect(mockUpdateWishUseCase.execute).toHaveBeenCalledWith("Updated Name", "Updated wish", 123, "test-session");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ message: "更新しました" });
+    });
+
+    it("should return 401 when neither userId nor sessionId is provided", async () => {
+      const req = mockRequest();
+      req.body = { wish: "Test wish" };
+
+      const res = mockResponse();
+
+      await wishController.updateWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({ error: "編集権限がありません。" });
+    });
+
+    it("should return 400 when wish is missing", async () => {
+      const req = mockRequest();
+      req.body = { name: "Test Name" };
+      req.user = { id: 123 };
+
+      const res = mockResponse();
+
+      await wishController.updateWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "願い事は必須です。" });
+    });
+
+    it("should handle errors in updateWish", async () => {
+      const req = mockRequest();
+      req.body = { wish: "Test wish" };
+      req.user = { id: 123 };
+
+      const res = mockResponse();
+      mockUpdateWishUseCase.execute.mockRejectedValue(new Error("Update failed"));
+
+      await wishController.updateWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "Update failed" });
+    });
+  });
+
+  describe("getCurrentWish", () => {
+    it("should get current wish by sessionId", async () => {
+      const req = mockRequest();
+      req.cookies = { sessionId: "test-session" };
+
+      const res = mockResponse();
+      const mockWish = new Wish({ id: "1", wish: "Test wish", createdAt: new Date() });
+      mockGetWishBySessionUseCase.execute.mockResolvedValue(mockWish);
+
+      await wishController.getCurrentWish(req, res);
+
+      expect(mockGetWishBySessionUseCase.execute).toHaveBeenCalledWith("test-session");
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ wish: mockWish });
+    });
+
+    it("should return null when no sessionId is provided", async () => {
+      const req = mockRequest();
+      req.cookies = {};
+
+      const res = mockResponse();
+
+      await wishController.getCurrentWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ wish: null });
+    });
+
+    it("should handle errors in getCurrentWish", async () => {
+      const req = mockRequest();
+      req.cookies = { sessionId: "test-session" };
+
+      const res = mockResponse();
+      mockGetWishBySessionUseCase.execute.mockRejectedValue(new Error("Session error"));
+
+      await wishController.getCurrentWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "Session error" });
+    });
+  });
+
+  describe("supportWish", () => {
+    it("should support a wish successfully", async () => {
+      const req = mockRequest();
+      req.params = { wishId: "wish123" };
+      req.cookies = { sessionId: "session123" };
+      req.user = { id: 456 };
+
+      const res = mockResponse();
+      mockSupportWishUseCase.execute.mockResolvedValue({ alreadySupported: false });
+
+      await wishController.supportWish(req, res);
+
+      expect(mockSupportWishUseCase.execute).toHaveBeenCalledWith("wish123", "session123", 456);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "応援しました",
+        success: true,
+        alreadySupported: false
+      });
+    });
+
+    it("should handle already supported wish", async () => {
+      const req = mockRequest();
+      req.params = { wishId: "wish123" };
+      req.cookies = { sessionId: "session123" };
+
+      const res = mockResponse();
+      mockSupportWishUseCase.execute.mockResolvedValue({ alreadySupported: true });
+
+      await wishController.supportWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "既に応援済みです",
+        success: true,
+        alreadySupported: true
+      });
+    });
+
+    it("should return 400 when wishId is missing", async () => {
+      const req = mockRequest();
+      req.params = {};
+
+      const res = mockResponse();
+
+      await wishController.supportWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "願い事IDが必要です" });
+    });
+
+    it("should handle errors in supportWish", async () => {
+      const req = mockRequest();
+      req.params = { wishId: "wish123" };
+
+      const res = mockResponse();
+      mockSupportWishUseCase.execute.mockRejectedValue(new Error("Support failed"));
+
+      await wishController.supportWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "Support failed" });
+    });
+  });
+
+  describe("unsupportWish", () => {
+    it("should unsupport a wish successfully", async () => {
+      const req = mockRequest();
+      req.params = { wishId: "wish123" };
+      req.cookies = { sessionId: "session123" };
+      req.user = { id: 456 };
+
+      const res = mockResponse();
+      mockUnsupportWishUseCase.execute.mockResolvedValue({ wasSupported: true });
+
+      await wishController.unsupportWish(req, res);
+
+      expect(mockUnsupportWishUseCase.execute).toHaveBeenCalledWith("wish123", "session123", 456);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "応援を取り消しました",
+        success: true,
+        wasSupported: true
+      });
+    });
+
+    it("should handle wish that was not supported", async () => {
+      const req = mockRequest();
+      req.params = { wishId: "wish123" };
+      req.cookies = { sessionId: "session123" };
+
+      const res = mockResponse();
+      mockUnsupportWishUseCase.execute.mockResolvedValue({ wasSupported: false });
+
+      await wishController.unsupportWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "応援していませんでした",
+        success: true,
+        wasSupported: false
+      });
+    });
+
+    it("should return 400 when wishId is missing in unsupportWish", async () => {
+      const req = mockRequest();
+      req.params = {};
+
+      const res = mockResponse();
+
+      await wishController.unsupportWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "願い事IDが必要です" });
+    });
+
+    it("should handle errors in unsupportWish", async () => {
+      const req = mockRequest();
+      req.params = { wishId: "wish123" };
+
+      const res = mockResponse();
+      mockUnsupportWishUseCase.execute.mockRejectedValue(new Error("Unsupport failed"));
+
+      await wishController.unsupportWish(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "Unsupport failed" });
+    });
+  });
+
+  describe("getWishSupportStatus", () => {
+    it("should get wish support status successfully", async () => {
+      const req = mockRequest();
+      req.params = { wishId: "wish123" };
+      req.cookies = { sessionId: "session123" };
+      req.user = { id: 456 };
+
+      const res = mockResponse();
+      const mockWish = new Wish({ id: "wish123", wish: "Test wish", createdAt: new Date() });
+      const mockResult = { isSupported: true, wish: mockWish };
+      mockGetWishSupportStatusUseCase.execute.mockResolvedValue(mockResult);
+
+      await wishController.getWishSupportStatus(req, res);
+
+      expect(mockGetWishSupportStatusUseCase.execute).toHaveBeenCalledWith("wish123", "session123", 456);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        isSupported: true,
+        wish: mockWish
+      });
+    });
+
+    it("should return 400 when wishId is missing in getWishSupportStatus", async () => {
+      const req = mockRequest();
+      req.params = {};
+
+      const res = mockResponse();
+
+      await wishController.getWishSupportStatus(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "願い事IDが必要です" });
+    });
+
+    it("should handle errors in getWishSupportStatus", async () => {
+      const req = mockRequest();
+      req.params = { wishId: "wish123" };
+
+      const res = mockResponse();
+      mockGetWishSupportStatusUseCase.execute.mockRejectedValue(new Error("Status check failed"));
+
+      await wishController.getWishSupportStatus(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "Status check failed" });
+    });
+  });
 });
