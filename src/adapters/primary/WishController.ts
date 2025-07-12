@@ -7,6 +7,7 @@ import { GetUserWishUseCase } from "../../application/usecases/GetUserWishUseCas
 import { SupportWishUseCase } from "../../application/usecases/SupportWishUseCase";
 import { UnsupportWishUseCase } from "../../application/usecases/UnsupportWishUseCase";
 import { GetWishSupportStatusUseCase } from "../../application/usecases/GetWishSupportStatusUseCase";
+import { v4 as uuidv4 } from 'uuid';
 
 export class WishController {
   constructor(
@@ -19,6 +20,28 @@ export class WishController {
     private unsupportWishUseCase: UnsupportWishUseCase,
     private getWishSupportStatusUseCase: GetWishSupportStatusUseCase
   ) {}
+
+  /**
+   * 匿名ユーザーのセッションIDを確保する
+   * 既存のセッションIDがある場合はそれを使用し、無い場合は新しく生成する
+   */
+  private ensureSessionId(req: Request, res: Response, userId?: number): string {
+    let sessionId = req.cookies.sessionId;
+    
+    // 匿名ユーザーでセッションIDが無い場合は新しいセッションIDを生成
+    if (!sessionId && !userId) {
+      sessionId = uuidv4();
+      
+      // セッションIDをクッキーに設定
+      res.cookie("sessionId", sessionId, {
+        httpOnly: true,
+        maxAge: 365 * 24 * 60 * 60 * 1000, // 1年
+        sameSite: "strict",
+      });
+    }
+    
+    return sessionId;
+  }
 
   public createWish = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -149,13 +172,16 @@ export class WishController {
   public supportWish = async (req: Request, res: Response): Promise<void> => {
     try {
       const { wishId } = req.params;
-      const sessionId = req.cookies.sessionId;
+      let sessionId = req.cookies.sessionId;
       const userId = req.user?.id;
 
       if (!wishId) {
         res.status(400).json({ error: "願い事IDが必要です" });
         return;
       }
+
+      // セッションIDを確保
+      sessionId = this.ensureSessionId(req, res, userId);
 
       const result = await this.supportWishUseCase.execute(wishId, sessionId, userId);
 
@@ -183,13 +209,16 @@ export class WishController {
   public unsupportWish = async (req: Request, res: Response): Promise<void> => {
     try {
       const { wishId } = req.params;
-      const sessionId = req.cookies.sessionId;
+      let sessionId = req.cookies.sessionId;
       const userId = req.user?.id;
 
       if (!wishId) {
         res.status(400).json({ error: "願い事IDが必要です" });
         return;
       }
+
+      // セッションIDを確保
+      sessionId = this.ensureSessionId(req, res, userId);
 
       const result = await this.unsupportWishUseCase.execute(wishId, sessionId, userId);
 
@@ -217,13 +246,16 @@ export class WishController {
   public getWishSupportStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const { wishId } = req.params;
-      const sessionId = req.cookies.sessionId;
+      let sessionId = req.cookies.sessionId;
       const userId = req.user?.id;
 
       if (!wishId) {
         res.status(400).json({ error: "願い事IDが必要です" });
         return;
       }
+
+      // セッションIDを確保
+      sessionId = this.ensureSessionId(req, res, userId);
 
       const result = await this.getWishSupportStatusUseCase.execute(wishId, sessionId, userId);
 
