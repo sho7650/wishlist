@@ -1,5 +1,10 @@
 import { KoaWishAdapter } from "../../../../src/adapters/primary/KoaWishAdapter";
 import { Wish } from "../../../../src/domain/entities/Wish";
+import { WishId } from "../../../../src/domain/value-objects/WishId";
+import { WishContent } from "../../../../src/domain/value-objects/WishContent";
+import { UserId } from "../../../../src/domain/value-objects/UserId";
+import { SessionId } from "../../../../src/domain/value-objects/SessionId";
+import { SupportCount } from "../../../../src/domain/value-objects/SupportCount";
 import Koa from "koa";
 
 // Koaのモック - 最小限の必要なプロパティのみ
@@ -87,7 +92,7 @@ describe("KoaWishAdapter", () => {
       (mockContext as any).cookies.get.mockReturnValue("test-session");
       (mockContext as any).state.user = { id: 123 };
 
-      const mockWish = new Wish({ id: "1", wish: "Test wish", createdAt: new Date() });
+      const mockWish = Wish.fromRepository({ id: WishId.fromString("1"), content: WishContent.fromString("Test wish"), authorId: UserId.fromNumber(123), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date() });
       mockCreateWishUseCase.execute.mockResolvedValue({
         wish: mockWish,
         sessionId: "test-session"
@@ -182,7 +187,7 @@ describe("KoaWishAdapter", () => {
   describe("getCurrentWish", () => {
     it("should get current wish by sessionId", async () => {
       (mockContext as any).cookies.get.mockReturnValue("test-session");
-      const mockWish = new Wish({ id: "1", wish: "Test wish", createdAt: new Date() });
+      const mockWish = Wish.fromRepository({ id: WishId.fromString("1"), content: WishContent.fromString("Test wish"), authorId: SessionId.fromString("test-session"), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date() });
       mockGetWishBySessionUseCase.execute.mockResolvedValue(mockWish);
 
       await koaWishAdapter.getCurrentWish(mockContext);
@@ -209,8 +214,8 @@ describe("KoaWishAdapter", () => {
       (mockContext as any).state.user = { id: 123 };
       
       const mockWishes = [
-        new Wish({ id: "1", wish: "Test wish 1", createdAt: new Date(), isSupported: true }),
-        new Wish({ id: "2", wish: "Test wish 2", createdAt: new Date(), isSupported: false }),
+        Wish.fromRepository({ id: WishId.fromString("1"), content: WishContent.fromString("Test wish 1"), authorId: SessionId.generate(), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date(), isSupported: true }),
+        Wish.fromRepository({ id: WishId.fromString("2"), content: WishContent.fromString("Test wish 2"), authorId: SessionId.generate(), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date(), isSupported: false }),
       ];
       mockGetLatestWishesUseCase.executeWithSupportStatus.mockResolvedValue(mockWishes);
 
@@ -257,7 +262,7 @@ describe("KoaWishAdapter", () => {
       (mockContext as any).state.user = { id: 123 };
       (mockContext as any).cookies.get.mockReturnValue("test-session");
 
-      const mockWish = new Wish({ id: "1", wish: "User wish", createdAt: new Date() });
+      const mockWish = Wish.fromRepository({ id: WishId.fromString("1"), content: WishContent.fromString("User wish"), authorId: UserId.fromNumber(123), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date() });
       mockGetUserWishUseCase.execute.mockResolvedValue(mockWish);
 
       await koaWishAdapter.getUserWish(mockContext);
@@ -398,7 +403,7 @@ describe("KoaWishAdapter", () => {
       (mockContext as any).cookies.get.mockReturnValue("session123");
       (mockContext as any).state.user = { id: 456 };
 
-      const mockWish = new Wish({ id: "wish123", wish: "Test wish", createdAt: new Date() });
+      const mockWish = Wish.fromRepository({ id: WishId.fromString("wish123"), content: WishContent.fromString("Test wish"), authorId: SessionId.generate(), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date() });
       const mockResult = { isSupported: true, wish: mockWish };
       mockGetWishSupportStatusUseCase.execute.mockResolvedValue(mockResult);
 
@@ -417,7 +422,7 @@ describe("KoaWishAdapter", () => {
       (mockContext as any).cookies.get.mockReturnValue(undefined); // No existing session
       (mockContext as any).state.user = undefined; // Anonymous user
 
-      const mockWish = new Wish({ id: "wish123", wish: "Test wish", createdAt: new Date() });
+      const mockWish = Wish.fromRepository({ id: WishId.fromString("wish123"), content: WishContent.fromString("Test wish"), authorId: SessionId.generate(), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date() });
       const mockResult = { isSupported: false, wish: mockWish };
       mockGetWishSupportStatusUseCase.execute.mockResolvedValue(mockResult);
 

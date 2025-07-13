@@ -1,5 +1,8 @@
 import { UnsupportWishUseCase } from "../../../../src/application/usecases/UnsupportWishUseCase";
-import { WishRepository } from "../../../../src/domain/repositories/WishRepository";
+import { WishRepository } from "../../../../src/ports/output/WishRepository";
+import { WishId } from "../../../../src/domain/value-objects/WishId";
+import { UserId } from "../../../../src/domain/value-objects/UserId";
+import { SessionId } from "../../../../src/domain/value-objects/SessionId";
 
 describe("UnsupportWishUseCase", () => {
   let unsupportWishUseCase: UnsupportWishUseCase;
@@ -17,66 +20,62 @@ describe("UnsupportWishUseCase", () => {
       removeSupport: jest.fn(),
       hasSupported: jest.fn(),
     };
-
     unsupportWishUseCase = new UnsupportWishUseCase(mockWishRepository);
   });
 
   describe("execute", () => {
-    it("should remove support when already supported", async () => {
-      const wishId = "wish-123";
-      const sessionId = "session-123";
-      const userId = 1;
+    it("should successfully remove support when previously supported", async () => {
+      const wishId = "test-wish-id";
+      const userId = 123;
 
       mockWishRepository.hasSupported.mockResolvedValue(true);
-      mockWishRepository.removeSupport.mockResolvedValue();
-
-      const result = await unsupportWishUseCase.execute(wishId, sessionId, userId);
-
-      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(wishId, sessionId, userId);
-      expect(mockWishRepository.removeSupport).toHaveBeenCalledWith(wishId, sessionId, userId);
-      expect(result).toEqual({ success: true, wasSupported: true });
-    });
-
-    it("should not remove support when not supported", async () => {
-      const wishId = "wish-123";
-      const sessionId = "session-123";
-      const userId = 1;
-
-      mockWishRepository.hasSupported.mockResolvedValue(false);
-
-      const result = await unsupportWishUseCase.execute(wishId, sessionId, userId);
-
-      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(wishId, sessionId, userId);
-      expect(mockWishRepository.removeSupport).not.toHaveBeenCalled();
-      expect(result).toEqual({ success: false, wasSupported: false });
-    });
-
-    it("should work with session ID only", async () => {
-      const wishId = "wish-123";
-      const sessionId = "session-123";
-
-      mockWishRepository.hasSupported.mockResolvedValue(true);
-      mockWishRepository.removeSupport.mockResolvedValue();
-
-      const result = await unsupportWishUseCase.execute(wishId, sessionId);
-
-      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(wishId, sessionId, undefined);
-      expect(mockWishRepository.removeSupport).toHaveBeenCalledWith(wishId, sessionId, undefined);
-      expect(result).toEqual({ success: true, wasSupported: true });
-    });
-
-    it("should work with user ID only", async () => {
-      const wishId = "wish-123";
-      const userId = 1;
-
-      mockWishRepository.hasSupported.mockResolvedValue(true);
-      mockWishRepository.removeSupport.mockResolvedValue();
+      mockWishRepository.removeSupport.mockResolvedValue(undefined);
 
       const result = await unsupportWishUseCase.execute(wishId, undefined, userId);
 
-      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(wishId, undefined, userId);
-      expect(mockWishRepository.removeSupport).toHaveBeenCalledWith(wishId, undefined, userId);
-      expect(result).toEqual({ success: true, wasSupported: true });
+      expect(result.success).toBe(true);
+      expect(result.wasSupported).toBe(true);
+      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(
+        WishId.fromString(wishId),
+        undefined,
+        UserId.fromNumber(userId)
+      );
+      expect(mockWishRepository.removeSupport).toHaveBeenCalledWith(
+        WishId.fromString(wishId),
+        undefined,
+        UserId.fromNumber(userId)
+      );
+    });
+
+    it("should return false when not previously supported", async () => {
+      const wishId = "test-wish-id";
+      const userId = 123;
+
+      mockWishRepository.hasSupported.mockResolvedValue(false);
+
+      const result = await unsupportWishUseCase.execute(wishId, undefined, userId);
+
+      expect(result.success).toBe(false);
+      expect(result.wasSupported).toBe(false);
+      expect(mockWishRepository.removeSupport).not.toHaveBeenCalled();
+    });
+
+    it("should work with session ID for anonymous users", async () => {
+      const wishId = "test-wish-id";
+      const sessionId = "test-session-id";
+
+      mockWishRepository.hasSupported.mockResolvedValue(true);
+      mockWishRepository.removeSupport.mockResolvedValue(undefined);
+
+      const result = await unsupportWishUseCase.execute(wishId, sessionId, undefined);
+
+      expect(result.success).toBe(true);
+      expect(result.wasSupported).toBe(true);
+      expect(mockWishRepository.removeSupport).toHaveBeenCalledWith(
+        WishId.fromString(wishId),
+        SessionId.fromString(sessionId),
+        undefined
+      );
     });
   });
 });

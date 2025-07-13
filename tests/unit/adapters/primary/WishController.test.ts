@@ -8,6 +8,11 @@ import { GetUserWishUseCase } from "../../../../src/application/usecases/GetUser
 import { SupportWishUseCase } from "../../../../src/application/usecases/SupportWishUseCase";
 import { UnsupportWishUseCase } from "../../../../src/application/usecases/UnsupportWishUseCase";
 import { GetWishSupportStatusUseCase } from "../../../../src/application/usecases/GetWishSupportStatusUseCase";
+import { WishId } from "../../../../src/domain/value-objects/WishId";
+import { WishContent } from "../../../../src/domain/value-objects/WishContent";
+import { UserId } from "../../../../src/domain/value-objects/UserId";
+import { SessionId } from "../../../../src/domain/value-objects/SessionId";
+import { SupportCount } from "../../../../src/domain/value-objects/SupportCount";
 
 // Express のリクエスト・レスポンスをモック
 const mockRequest = () => {
@@ -86,10 +91,13 @@ describe("WishController", () => {
 
       const res = mockResponse();
 
-      const mockWish = new Wish({
-        id: "123",
+      const mockWish = Wish.fromRepository({
+        id: WishId.fromString("123"),
+        content: WishContent.fromString("テストの願い事"),
+        authorId: SessionId.generate(),
         name: "テスト太郎",
-        wish: "テストの願い事",
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
         createdAt: new Date(),
       });
 
@@ -141,10 +149,13 @@ describe("WishController", () => {
 
       const res = mockResponse();
 
-      const mockWish = new Wish({
-        id: "123",
+      const mockWish = Wish.fromRepository({
+        id: WishId.fromString("123"),
+        content: WishContent.fromString("テストの願い事"),
+        authorId: SessionId.fromString("existing-session-id"),
         name: "テスト太郎",
-        wish: "テストの願い事",
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
         createdAt: new Date(),
       });
 
@@ -225,10 +236,13 @@ describe("WishController", () => {
 
       const res = mockResponse();
 
-      const mockWish = new Wish({
-        id: "123",
+      const mockWish = Wish.fromRepository({
+        id: WishId.fromString("123"),
+        content: WishContent.fromString("テストの願い事"),
+        authorId: SessionId.fromString("test-session-id"),
         name: "テスト太郎",
-        wish: "テストの願い事",
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
         createdAt: new Date(),
       });
 
@@ -257,8 +271,8 @@ describe("WishController", () => {
       const res = mockResponse();
 
       const mockWishes = [
-        new Wish({ id: "1", wish: "願い事1", createdAt: new Date() }),
-        new Wish({ id: "2", wish: "願い事2", createdAt: new Date() }),
+        Wish.fromRepository({ id: WishId.fromString("1"), content: WishContent.fromString("願い事1"), authorId: SessionId.generate(), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date() }),
+        Wish.fromRepository({ id: WishId.fromString("2"), content: WishContent.fromString("願い事2"), authorId: SessionId.generate(), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date() }),
       ];
 
       mockGetLatestWishesUseCase.executeWithSupportStatus.mockResolvedValue(mockWishes);
@@ -282,7 +296,7 @@ describe("WishController", () => {
       const res = mockResponse();
 
       const mockWishes = [
-        new Wish({ id: "1", wish: "願い事1", createdAt: new Date(), isSupported: true }),
+        Wish.fromRepository({ id: WishId.fromString("1"), content: WishContent.fromString("願い事1"), authorId: SessionId.generate(), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date(), isSupported: true }),
       ];
 
       mockGetLatestWishesUseCase.executeWithSupportStatus.mockResolvedValue(mockWishes);
@@ -342,10 +356,12 @@ describe("WishController", () => {
 
       const res = mockResponse();
 
-      const mockWish = new Wish({
-        id: "user-wish-id",
-        wish: "User's wish",
-        userId: 123,
+      const mockWish = Wish.fromRepository({
+        id: WishId.fromString("user-wish-id"),
+        content: WishContent.fromString("User's wish"),
+        authorId: UserId.fromNumber(123),
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
         createdAt: new Date(),
       });
 
@@ -367,9 +383,12 @@ describe("WishController", () => {
 
       const res = mockResponse();
 
-      const mockWish = new Wish({
-        id: "session-wish-id",
-        wish: "Session wish",
+      const mockWish = Wish.fromRepository({
+        id: WishId.fromString("session-wish-id"),
+        content: WishContent.fromString("Session wish"),
+        authorId: SessionId.fromString("test-session"),
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
         createdAt: new Date(),
       });
 
@@ -484,7 +503,7 @@ describe("WishController", () => {
       req.cookies = { sessionId: "test-session" };
 
       const res = mockResponse();
-      const mockWish = new Wish({ id: "1", wish: "Test wish", createdAt: new Date() });
+      const mockWish = Wish.fromRepository({ id: WishId.fromString("1"), content: WishContent.fromString("Test wish"), authorId: SessionId.fromString("test-session"), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date() });
       mockGetWishBySessionUseCase.execute.mockResolvedValue(mockWish);
 
       await wishController.getCurrentWish(req, res);
@@ -658,7 +677,7 @@ describe("WishController", () => {
       req.user = { id: 456 };
 
       const res = mockResponse();
-      const mockWish = new Wish({ id: "wish123", wish: "Test wish", createdAt: new Date() });
+      const mockWish = Wish.fromRepository({ id: WishId.fromString("wish123"), content: WishContent.fromString("Test wish"), authorId: SessionId.generate(), supportCount: SupportCount.fromNumber(0), supporters: new Set<string>(), createdAt: new Date() });
       const mockResult = { isSupported: true, wish: mockWish };
       mockGetWishSupportStatusUseCase.execute.mockResolvedValue(mockResult);
 
