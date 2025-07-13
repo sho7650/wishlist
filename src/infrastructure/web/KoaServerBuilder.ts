@@ -12,7 +12,7 @@ import {
   UnsupportWishUseCase,
   GetWishSupportStatusUseCase,
 } from "../../application/usecases";
-import { WishRepository } from "../../domain/repositories/WishRepository";
+import { WishRepository } from "../../ports/output/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
 
 export class KoaServerBuilder implements ServerBuilderStrategy {
@@ -23,10 +23,7 @@ export class KoaServerBuilder implements ServerBuilderStrategy {
   ): WebServer {
     console.log("Building Koa server with strategy...");
 
-    const createWishUseCase = new CreateWishUseCase(
-      wishRepository,
-      sessionService
-    );
+    const createWishUseCase = new CreateWishUseCase(wishRepository as any);
     const updateWishUseCase = new UpdateWishUseCase(wishRepository);
     const getWishBySessionUseCase = new GetWishBySessionUseCase(wishRepository);
     const getLatestWishesUseCase = new GetLatestWishesUseCase(wishRepository);

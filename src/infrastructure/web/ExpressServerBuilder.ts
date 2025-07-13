@@ -12,7 +12,7 @@ import {
   UnsupportWishUseCase,
   GetWishSupportStatusUseCase,
 } from "../../application/usecases"; // usecases/index.ts などでまとめると綺麗
-import { WishRepository } from "../../domain/repositories/WishRepository";
+import { WishRepository } from "../../ports/output/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
 import { PassportStatic } from "passport";
 
@@ -24,10 +24,7 @@ export class ExpressServerBuilder implements ServerBuilderStrategy {
   ): WebServer {
     console.log("Building Express server with strategy...");
 
-    const createWishUseCase = new CreateWishUseCase(
-      wishRepository,
-      sessionService
-    );
+    const createWishUseCase = new CreateWishUseCase(wishRepository as any);
     const updateWishUseCase = new UpdateWishUseCase(wishRepository);
     const getWishBySessionUseCase = new GetWishBySessionUseCase(wishRepository);
     const getLatestWishesUseCase = new GetLatestWishesUseCase(wishRepository);

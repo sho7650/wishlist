@@ -1,5 +1,7 @@
 import { Wish } from "../../domain/entities/Wish";
-import { WishRepository } from "../../domain/repositories/WishRepository";
+import { WishRepository } from "../../ports/output/WishRepository";
+import { SessionId } from "../../domain/value-objects/SessionId";
+import { UserId } from "../../domain/value-objects/UserId";
 
 export class GetLatestWishesUseCase {
   constructor(private wishRepository: WishRepository) {}
@@ -14,6 +16,8 @@ export class GetLatestWishesUseCase {
     sessionId?: string, 
     userId?: number
   ): Promise<Wish[]> {
-    return this.wishRepository.findLatestWithSupportStatus(limit, offset, sessionId, userId);
+    const sessionIdObj = sessionId ? SessionId.fromString(sessionId) : undefined;
+    const userIdObj = userId ? UserId.fromNumber(userId) : undefined;
+    return this.wishRepository.findLatestWithSupportStatus(limit, offset, sessionIdObj, userIdObj);
   }
 }

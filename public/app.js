@@ -74,12 +74,17 @@ document.addEventListener("DOMContentLoaded", () => {
       // console.log("Checking auth state...");
       const response = await fetch("/api/user");
       // console.log("Response from /api/user:", response.status, response.ok);
-      const user =
-        response.ok && response.headers.get("content-length") !== "0"
-          ? await response.json()
-          : null;
+      let user = null;
+      if (response.ok && response.headers.get("content-length") !== "0") {
+        try {
+          user = await response.json();
+        } catch (jsonError) {
+          // If JSON parsing fails, treat as no user
+          user = null;
+        }
+      }
 
-      if (userAvatar && loginButton && postWishButton && logoutButton) {
+      if (user && userAvatar && loginButton && postWishButton && logoutButton) {
         // const user = await response.json();
         // console.log("User data received:", user); // ★このログを確認
         // console.log("userAvatar element:", userAvatar);
@@ -150,6 +155,18 @@ document.addEventListener("DOMContentLoaded", () => {
     // console.log(`loadWishes: Fetching wishes... (offset: ${offset})`);
 
     try {
+      // Get current user info
+      const userResponse = await fetch("/api/user");
+      let currentUser = null;
+      if (userResponse.ok && userResponse.headers.get("content-length") !== "0") {
+        try {
+          currentUser = await userResponse.json();
+        } catch (jsonError) {
+          // If JSON parsing fails, treat as no user
+          currentUser = null;
+        }
+      }
+      
       const response = await fetch(`/api/wishes?limit=20&offset=${offset}`);
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`);
@@ -167,11 +184,20 @@ document.addEventListener("DOMContentLoaded", () => {
           const hue = Math.floor(Math.random() * 360);
           card.style.backgroundColor = `hsl(${hue}, 70%, 90%)`;
           
+          // Check if this wish belongs to the current user
+          const isOwnWish = currentUser && wish.userId && currentUser.id === wish.userId;
+          const buttonClass = wish.isSupported ? 'supported' : '';
+          const buttonDisabled = isOwnWish ? 'disabled' : '';
+          const buttonTitle = isOwnWish ? '自分の投稿には応援できません' : '';
+          
           card.innerHTML = `
             <div class="wish-content">${escapeHTML(wish.wish)}</div>
             <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
             <div class="wish-support">
-              <button class="support-button ${wish.isSupported ? 'supported' : ''}" data-wish-id="${wish.id}">
+              <button class="support-button ${buttonClass} ${buttonDisabled}" 
+                      data-wish-id="${wish.id}" 
+                      ${isOwnWish ? 'disabled' : ''}
+                      title="${buttonTitle}">
                 <span class="star-icon">⭐</span>
                 <span class="support-count">${wish.supportCount || 0}</span>
               </button>
@@ -401,8 +427,18 @@ document.addEventListener("DOMContentLoaded", () => {
           } else {
             button.classList.remove("supported");
           }
+        } else if (response.status === 403) {
+          // 403 Forbidden: 自分の投稿への応援など、ビジネスルール違反
+          const errorData = await response.json();
+          if (errorData.code === "SELF_SUPPORT_NOT_ALLOWED") {
+            showStatus("自分の投稿には応援できません", "error");
+          } else {
+            showStatus(errorData.error || "この操作は許可されていません", "error");
+          }
         } else {
-          throw new Error(`API call failed with status ${response.status}`);
+          // その他のエラー
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `API call failed with status ${response.status}`);
         }
       } catch (error) {
         console.error("Error handling support action:", error);

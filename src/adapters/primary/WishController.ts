@@ -202,6 +202,21 @@ export class WishController {
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";
+      
+      // Handle specific business rule errors with appropriate status codes
+      if (errorMessage === "作者は自分の願いに応援できません") {
+        res.status(403).json({ 
+          error: errorMessage,
+          code: "SELF_SUPPORT_NOT_ALLOWED"
+        });
+        return;
+      }
+      
+      if (errorMessage === "願い事が見つかりません") {
+        res.status(404).json({ error: errorMessage });
+        return;
+      }
+      
       res.status(400).json({ error: errorMessage });
     }
   };
