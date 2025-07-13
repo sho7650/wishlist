@@ -1,6 +1,11 @@
 import { GetUserWishUseCase } from "../../../../src/application/usecases/GetUserWishUseCase";
 import { Wish } from "../../../../src/domain/entities/Wish";
-import { WishRepository } from "../../../../src/domain/repositories/WishRepository";
+import { WishRepository } from "../../../../src/ports/output/WishRepository";
+import { WishId } from "../../../../src/domain/value-objects/WishId";
+import { WishContent } from "../../../../src/domain/value-objects/WishContent";
+import { UserId } from "../../../../src/domain/value-objects/UserId";
+import { SessionId } from "../../../../src/domain/value-objects/SessionId";
+import { SupportCount } from "../../../../src/domain/value-objects/SupportCount";
 
 describe("GetUserWishUseCase", () => {
   let getUserWishUseCase: GetUserWishUseCase;
@@ -25,10 +30,12 @@ describe("GetUserWishUseCase", () => {
     it("should return wish when found by userId", async () => {
       // Arrange
       const userId = 123;
-      const expectedWish = new Wish({
-        id: "test-id",
-        wish: "Test wish",
-        userId: userId,
+      const expectedWish = Wish.fromRepository({
+        id: WishId.fromString("test-id"),
+        content: WishContent.fromString("Test wish"),
+        authorId: UserId.fromNumber(userId),
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
         createdAt: new Date(),
       });
       mockWishRepository.findByUserId.mockResolvedValue(expectedWish);
@@ -37,16 +44,19 @@ describe("GetUserWishUseCase", () => {
       const result = await getUserWishUseCase.execute(userId);
 
       // Assert
-      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(userId);
+      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(UserId.fromNumber(userId));
       expect(result).toBe(expectedWish);
     });
 
     it("should return wish when found by sessionId (when userId is not provided)", async () => {
       // Arrange
       const sessionId = "test-session-id";
-      const expectedWish = new Wish({
-        id: "test-id",
-        wish: "Test wish",
+      const expectedWish = Wish.fromRepository({
+        id: WishId.fromString("test-id"),
+        content: WishContent.fromString("Test wish"),
+        authorId: SessionId.fromString(sessionId),
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
         createdAt: new Date(),
       });
       mockWishRepository.findBySessionId.mockResolvedValue(expectedWish);
@@ -55,7 +65,7 @@ describe("GetUserWishUseCase", () => {
       const result = await getUserWishUseCase.execute(undefined, sessionId);
 
       // Assert
-      expect(mockWishRepository.findBySessionId).toHaveBeenCalledWith(sessionId);
+      expect(mockWishRepository.findBySessionId).toHaveBeenCalledWith(SessionId.fromString(sessionId));
       expect(result).toBe(expectedWish);
     });
 
@@ -63,9 +73,12 @@ describe("GetUserWishUseCase", () => {
       // Arrange
       const userId = 123;
       const sessionId = "test-session-id";
-      const expectedWish = new Wish({
-        id: "test-id",
-        wish: "Test wish",
+      const expectedWish = Wish.fromRepository({
+        id: WishId.fromString("test-id"),
+        content: WishContent.fromString("Test wish"),
+        authorId: SessionId.fromString(sessionId),
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
         createdAt: new Date(),
       });
       mockWishRepository.findByUserId.mockResolvedValue(null);
@@ -75,8 +88,8 @@ describe("GetUserWishUseCase", () => {
       const result = await getUserWishUseCase.execute(userId, sessionId);
 
       // Assert
-      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(userId);
-      expect(mockWishRepository.findBySessionId).toHaveBeenCalledWith(sessionId);
+      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(UserId.fromNumber(userId));
+      expect(mockWishRepository.findBySessionId).toHaveBeenCalledWith(SessionId.fromString(sessionId));
       expect(result).toBe(expectedWish);
     });
 
@@ -91,8 +104,8 @@ describe("GetUserWishUseCase", () => {
       const result = await getUserWishUseCase.execute(userId, sessionId);
 
       // Assert
-      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(userId);
-      expect(mockWishRepository.findBySessionId).toHaveBeenCalledWith(sessionId);
+      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(UserId.fromNumber(userId));
+      expect(mockWishRepository.findBySessionId).toHaveBeenCalledWith(SessionId.fromString(sessionId));
       expect(result).toBeNull();
     });
 
@@ -110,10 +123,12 @@ describe("GetUserWishUseCase", () => {
       // Arrange
       const userId = 123;
       const sessionId = "test-session-id";
-      const expectedWish = new Wish({
-        id: "test-id",
-        wish: "Test wish",
-        userId: userId,
+      const expectedWish = Wish.fromRepository({
+        id: WishId.fromString("test-id"),
+        content: WishContent.fromString("Test wish"),
+        authorId: UserId.fromNumber(userId),
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
         createdAt: new Date(),
       });
       mockWishRepository.findByUserId.mockResolvedValue(expectedWish);
@@ -122,7 +137,7 @@ describe("GetUserWishUseCase", () => {
       const result = await getUserWishUseCase.execute(userId, sessionId);
 
       // Assert
-      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(userId);
+      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(UserId.fromNumber(userId));
       expect(mockWishRepository.findBySessionId).not.toHaveBeenCalled();
       expect(result).toBe(expectedWish);
     });

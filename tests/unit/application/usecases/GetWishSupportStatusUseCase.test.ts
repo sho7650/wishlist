@@ -1,6 +1,11 @@
 import { GetWishSupportStatusUseCase } from "../../../../src/application/usecases/GetWishSupportStatusUseCase";
-import { WishRepository } from "../../../../src/domain/repositories/WishRepository";
+import { WishRepository } from "../../../../src/ports/output/WishRepository";
 import { Wish } from "../../../../src/domain/entities/Wish";
+import { WishId } from "../../../../src/domain/value-objects/WishId";
+import { WishContent } from "../../../../src/domain/value-objects/WishContent";
+import { UserId } from "../../../../src/domain/value-objects/UserId";
+import { SessionId } from "../../../../src/domain/value-objects/SessionId";
+import { SupportCount } from "../../../../src/domain/value-objects/SupportCount";
 
 describe("GetWishSupportStatusUseCase", () => {
   let getWishSupportStatusUseCase: GetWishSupportStatusUseCase;
@@ -18,103 +23,104 @@ describe("GetWishSupportStatusUseCase", () => {
       removeSupport: jest.fn(),
       hasSupported: jest.fn(),
     };
-
     getWishSupportStatusUseCase = new GetWishSupportStatusUseCase(mockWishRepository);
   });
 
   describe("execute", () => {
-    it("should return support status and wish details", async () => {
-      const wishId = "wish-123";
-      const sessionId = "session-123";
-      const userId = 1;
-
-      const mockWish = new Wish({
-        id: wishId,
-        wish: "Test wish",
-        supportCount: 5,
+    it("should return wish and support status when wish exists and is supported", async () => {
+      const wishId = "test-wish-id";
+      const userId = 123;
+      
+      const mockWish = Wish.fromRepository({
+        id: WishId.fromString(wishId),
+        content: WishContent.fromString("Test wish"),
+        authorId: UserId.fromNumber(456),
+        supportCount: SupportCount.fromNumber(5),
+        supporters: new Set<string>(),
+        createdAt: new Date(),
       });
 
+      mockWishRepository.findById.mockResolvedValue(mockWish);
       mockWishRepository.hasSupported.mockResolvedValue(true);
-      mockWishRepository.findById.mockResolvedValue(mockWish);
-
-      const result = await getWishSupportStatusUseCase.execute(wishId, sessionId, userId);
-
-      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(wishId, sessionId, userId);
-      expect(mockWishRepository.findById).toHaveBeenCalledWith(wishId);
-      expect(result).toEqual({
-        isSupported: true,
-        wish: mockWish,
-      });
-    });
-
-    it("should return false when not supported", async () => {
-      const wishId = "wish-123";
-      const sessionId = "session-123";
-      const userId = 1;
-
-      const mockWish = new Wish({
-        id: wishId,
-        wish: "Test wish",
-        supportCount: 2,
-      });
-
-      mockWishRepository.hasSupported.mockResolvedValue(false);
-      mockWishRepository.findById.mockResolvedValue(mockWish);
-
-      const result = await getWishSupportStatusUseCase.execute(wishId, sessionId, userId);
-
-      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(wishId, sessionId, userId);
-      expect(mockWishRepository.findById).toHaveBeenCalledWith(wishId);
-      expect(result).toEqual({
-        isSupported: false,
-        wish: mockWish,
-      });
-    });
-
-    it("should work with session ID only", async () => {
-      const wishId = "wish-123";
-      const sessionId = "session-123";
-
-      const mockWish = new Wish({
-        id: wishId,
-        wish: "Test wish",
-        supportCount: 0,
-      });
-
-      mockWishRepository.hasSupported.mockResolvedValue(false);
-      mockWishRepository.findById.mockResolvedValue(mockWish);
-
-      const result = await getWishSupportStatusUseCase.execute(wishId, sessionId);
-
-      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(wishId, sessionId, undefined);
-      expect(mockWishRepository.findById).toHaveBeenCalledWith(wishId);
-      expect(result).toEqual({
-        isSupported: false,
-        wish: mockWish,
-      });
-    });
-
-    it("should work with user ID only", async () => {
-      const wishId = "wish-123";
-      const userId = 1;
-
-      const mockWish = new Wish({
-        id: wishId,
-        wish: "Test wish",
-        supportCount: 10,
-      });
-
-      mockWishRepository.hasSupported.mockResolvedValue(true);
-      mockWishRepository.findById.mockResolvedValue(mockWish);
 
       const result = await getWishSupportStatusUseCase.execute(wishId, undefined, userId);
 
-      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(wishId, undefined, userId);
-      expect(mockWishRepository.findById).toHaveBeenCalledWith(wishId);
-      expect(result).toEqual({
-        isSupported: true,
-        wish: mockWish,
+      expect(result.isSupported).toBe(true);
+      expect(result.wish).toBe(mockWish);
+      expect(mockWishRepository.findById).toHaveBeenCalledWith(WishId.fromString(wishId));
+      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(
+        WishId.fromString(wishId),
+        undefined,
+        UserId.fromNumber(userId)
+      );
+    });
+
+    it("should return wish and support status when wish exists and is not supported", async () => {
+      const wishId = "test-wish-id";
+      const sessionId = "test-session-id";
+      
+      const mockWish = Wish.fromRepository({
+        id: WishId.fromString(wishId),
+        content: WishContent.fromString("Another wish"),
+        authorId: UserId.fromNumber(456),
+        supportCount: SupportCount.fromNumber(2),
+        supporters: new Set<string>(),
+        createdAt: new Date(),
       });
+
+      mockWishRepository.findById.mockResolvedValue(mockWish);
+      mockWishRepository.hasSupported.mockResolvedValue(false);
+
+      const result = await getWishSupportStatusUseCase.execute(wishId, sessionId, undefined);
+
+      expect(result.isSupported).toBe(false);
+      expect(result.wish).toBe(mockWish);
+      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(
+        WishId.fromString(wishId),
+        SessionId.fromString(sessionId),
+        undefined
+      );
+    });
+
+    it("should work with both userId and sessionId", async () => {
+      const wishId = "test-wish-id";
+      const sessionId = "test-session-id";
+      const userId = 123;
+      
+      const mockWish = Wish.fromRepository({
+        id: WishId.fromString(wishId),
+        content: WishContent.fromString("Test wish"),
+        authorId: UserId.fromNumber(456),
+        supportCount: SupportCount.fromNumber(10),
+        supporters: new Set<string>(),
+        createdAt: new Date(),
+      });
+
+      mockWishRepository.findById.mockResolvedValue(mockWish);
+      mockWishRepository.hasSupported.mockResolvedValue(true);
+
+      const result = await getWishSupportStatusUseCase.execute(wishId, sessionId, userId);
+
+      expect(result.isSupported).toBe(true);
+      expect(result.wish).toBe(mockWish);
+      expect(mockWishRepository.hasSupported).toHaveBeenCalledWith(
+        WishId.fromString(wishId),
+        SessionId.fromString(sessionId),
+        UserId.fromNumber(userId)
+      );
+    });
+
+    it("should handle the case when wish does not exist", async () => {
+      const wishId = "nonexistent-wish-id";
+      const userId = 123;
+
+      mockWishRepository.findById.mockResolvedValue(null);
+      mockWishRepository.hasSupported.mockResolvedValue(false);
+
+      const result = await getWishSupportStatusUseCase.execute(wishId, undefined, userId);
+
+      expect(result.isSupported).toBe(false);
+      expect(result.wish).toBeNull();
     });
   });
 });

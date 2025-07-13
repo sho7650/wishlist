@@ -12,6 +12,8 @@ _(Note: Replace this with an actual screenshot of your application)_
 
 - **Post a Wish**: Users can anonymously or with a name post their "negaigoto" (wish).
 - **Edit Your Wish**: A session cookie allows users to edit the wish they've posted. A user can only have one wish per session.
+- **Google OAuth Authentication**: Users can sign in with Google for persistent wish management.
+- **Support System**: Users can express support for wishes with a star-based system.
 - **Dynamic Wish Wall**: View the latest wishes from users around the world, displayed in beautifully colored, random cards.
 - **Infinite Scroll**: Seamlessly load and browse through past wishes by simply scrolling down the page.
 - **Separated Views**: A dedicated read-only page for browsing wishes and a separate page for posting or editing a wish.
@@ -54,14 +56,25 @@ The codebase is organized following the principles of Hexagonal Architecture.
 ```
 .
 ├── src/
-│   ├── domain/         # Core business logic (Entities, Repositories)
-│   ├── application/    # Use cases that orchestrate the domain
+│   ├── domain/         # Core business logic
+│   │   ├── entities/   # Domain entities (Wish)
+│   │   ├── value-objects/ # Value objects (WishId, WishContent, etc.)
+│   │   ├── events/     # Domain events
+│   │   └── exceptions/ # Domain-specific exceptions
+│   ├── application/    # Use cases and application services
+│   │   ├── usecases/   # Application use cases
+│   │   └── services/   # Application services
 │   ├── infrastructure/ # External concerns (DB connection, Web server)
-│   ├── adapters/       # Connects infrastructure to ports (Controllers, DB Repositories)
+│   ├── adapters/       # Connects infrastructure to ports
+│   │   ├── primary/    # Controllers (HTTP handlers)
+│   │   └── secondary/  # Database repositories, external services
 │   ├── ports/          # Interfaces defining communication contracts
+│   │   ├── input/      # Input ports (service interfaces)
+│   │   └── output/     # Output ports (repository interfaces)
 │   └── index.ts        # Application entry point
 ├── public/             # Frontend static files (HTML, CSS, JS)
 ├── tests/              # Unit, Integration, and E2E tests
+├── principles/         # Architecture documentation
 ├── jest.config.js      # Jest testing configuration
 └── package.json
 ```
@@ -118,6 +131,19 @@ Follow these instructions to get the project up and running on your local machin
     DB_NAME=wishlist
     DB_USER=postgres
     DB_PASSWORD=your_db_password
+    LOG_LEVEL=info  # or 'error', 'warn', 'debug'
+    ```
+
+    **Logging Configuration:**
+    Control logging verbosity with the `LOG_LEVEL` environment variable:
+    - `error`: Only error messages (default in production)
+    - `warn`: Error and warning messages
+    - `info`: Error, warning, and informational messages (default in development)
+    - `debug`: All messages including detailed debug information
+
+    For troubleshooting support operations:
+    ```bash
+    LOG_LEVEL=debug npm run dev
     ```
 
 ### Running the Application

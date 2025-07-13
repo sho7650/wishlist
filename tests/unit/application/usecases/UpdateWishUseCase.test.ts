@@ -1,77 +1,117 @@
 import { UpdateWishUseCase } from "../../../../src/application/usecases/UpdateWishUseCase";
+import { WishRepository } from "../../../../src/ports/output/WishRepository";
 import { Wish } from "../../../../src/domain/entities/Wish";
-
-// モック
-const mockWishRepository = {
-  save: jest.fn(),
-  findById: jest.fn(),
-  findBySessionId: jest.fn(),
-  findLatest: jest.fn(),
-  findLatestWithSupportStatus: jest.fn(),
-  findByUserId: jest.fn(), // ユーザーIDで探すメソッドを追加
-  addSupport: jest.fn(),
-  removeSupport: jest.fn(),
-  hasSupported: jest.fn(),
-};
-
-const mockSessionService = {
-  generateSessionId: jest.fn(),
-  linkSessionToWish: jest.fn(),
-  getWishIdBySession: jest.fn(),
-};
+import { WishId } from "../../../../src/domain/value-objects/WishId";
+import { WishContent } from "../../../../src/domain/value-objects/WishContent";
+import { UserId } from "../../../../src/domain/value-objects/UserId";
+import { SessionId } from "../../../../src/domain/value-objects/SessionId";
+import { SupportCount } from "../../../../src/domain/value-objects/SupportCount";
 
 describe("UpdateWishUseCase", () => {
   let updateWishUseCase: UpdateWishUseCase;
+  let mockWishRepository: jest.Mocked<WishRepository>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockWishRepository = {
+      save: jest.fn(),
+      findById: jest.fn(),
+      findByUserId: jest.fn(),
+      findBySessionId: jest.fn(),
+      findLatest: jest.fn(),
+      findLatestWithSupportStatus: jest.fn(),
+      addSupport: jest.fn(),
+      removeSupport: jest.fn(),
+      hasSupported: jest.fn(),
+    };
     updateWishUseCase = new UpdateWishUseCase(mockWishRepository);
   });
 
-  it("should update an existing wish", async () => {
-    // 既存の願い事をモック
-    const existingWish = new Wish({
-      id: "123",
-      name: "元の名前",
-      wish: "元の願い事",
-      createdAt: new Date(),
+  describe("execute", () => {
+    it("should successfully update a wish for authenticated user", async () => {
+      const userId = 123;
+      const existingWish = Wish.fromRepository({
+        id: WishId.fromString("123"),
+        content: WishContent.fromString("Original wish"),
+        authorId: UserId.fromNumber(userId),
+        name: "Original name",
+        supportCount: SupportCount.fromNumber(5),
+        supporters: new Set<string>(),
+        createdAt: new Date(),
+      });
+
+      mockWishRepository.findByUserId.mockResolvedValue(existingWish);
+      mockWishRepository.save.mockResolvedValue(undefined);
+
+      await updateWishUseCase.execute("Updated name", "Updated wish", userId, undefined);
+
+      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(UserId.fromNumber(userId));
+      expect(mockWishRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Updated name",
+          wish: "Updated wish"
+        }),
+        userId
+      );
     });
-    mockWishRepository.findBySessionId.mockResolvedValue(existingWish);
 
-    // 実行
-    const newName = "新しい名前";
-    const newWishText = "新しい願い事";
-    const newUserId = 1; // ユーザーIDを追加
-    await updateWishUseCase.execute(
-      newName,
-      newWishText,
-      newUserId,
-      "test-session-id"
-    );
+    it("should successfully update a wish for session user", async () => {
+      const sessionId = "test-session-id";
+      const existingWish = Wish.fromRepository({
+        id: WishId.fromString("456"),
+        content: WishContent.fromString("Original wish"),
+        authorId: SessionId.fromString(sessionId),
+        supportCount: SupportCount.fromNumber(2),
+        supporters: new Set<string>(),
+        createdAt: new Date(),
+      });
 
-    // 検証
-    expect(mockWishRepository.findBySessionId).toHaveBeenCalledWith(
-      "test-session-id"
-    );
-    expect(mockWishRepository.save).toHaveBeenCalledTimes(1);
+      mockWishRepository.findByUserId.mockResolvedValue(null);
+      mockWishRepository.findBySessionId.mockResolvedValue(existingWish);
+      mockWishRepository.save.mockResolvedValue(undefined);
 
-    // 保存されたwishオブジェクトを検証
-    const savedWish = mockWishRepository.save.mock.calls[0][0];
-    expect(savedWish.id).toBe(existingWish.id);
-    expect(savedWish.name).toBe(newName);
-    expect(savedWish.wish).toBe(newWishText);
-    expect(savedWish.createdAt).toEqual(existingWish.createdAt);
-  });
+      await updateWishUseCase.execute("Updated name", "Updated wish", undefined, sessionId);
 
-  it("should throw error when wish not found", async () => {
-    // 願い事が見つからない状態をモック
-    mockWishRepository.findBySessionId.mockResolvedValue(null);
+      expect(mockWishRepository.findBySessionId).toHaveBeenCalledWith(SessionId.fromString(sessionId));
+      expect(mockWishRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "Updated name",
+          wish: "Updated wish"
+        }),
+        undefined
+      );
+    });
 
-    // 実行と検証
-    await expect(
-      updateWishUseCase.execute("invalid-session-id", "名前")
-    ).rejects.toThrow("投稿が見つかりません");
+    it("should throw error when no wish found to update", async () => {
+      const userId = 123;
+      mockWishRepository.findByUserId.mockResolvedValue(null);
+      mockWishRepository.findBySessionId.mockResolvedValue(null);
 
-    expect(mockWishRepository.save).not.toHaveBeenCalled();
+      await expect(
+        updateWishUseCase.execute("Name", "Wish", userId, "session-id")
+      ).rejects.toThrow("更新対象の投稿が見つかりませんでした。");
+
+      expect(mockWishRepository.save).not.toHaveBeenCalled();
+    });
+
+    it("should prioritize userId over sessionId", async () => {
+      const userId = 123;
+      const sessionId = "test-session-id";
+      const userWish = Wish.fromRepository({
+        id: WishId.fromString("user-wish"),
+        content: WishContent.fromString("User wish"),
+        authorId: UserId.fromNumber(userId),
+        supportCount: SupportCount.fromNumber(0),
+        supporters: new Set<string>(),
+        createdAt: new Date(),
+      });
+
+      mockWishRepository.findByUserId.mockResolvedValue(userWish);
+      mockWishRepository.save.mockResolvedValue(undefined);
+
+      await updateWishUseCase.execute("Updated", "Updated wish", userId, sessionId);
+
+      expect(mockWishRepository.findByUserId).toHaveBeenCalledWith(UserId.fromNumber(userId));
+      expect(mockWishRepository.findBySessionId).not.toHaveBeenCalled();
+    });
   });
 });
