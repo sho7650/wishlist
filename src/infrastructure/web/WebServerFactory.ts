@@ -3,7 +3,7 @@ import passport, { Passport, PassportStatic } from "passport";
 import { ServerBuilderStrategy } from "./ServerBuilderStrategy";
 import { ExpressServerBuilder } from "./ExpressServerBuilder";
 import { KoaServerBuilder } from "./KoaServerBuilder";
-import { WishRepository } from "../../domain/repositories/WishRepository";
+import { WishRepository } from "../../ports/output/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
 
 export class WebServerFactory {

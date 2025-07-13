@@ -3,7 +3,7 @@ import "dotenv/config"; // dotenvを一番最初にインポート
 import "newrelic";
 import passport from "passport";
 import { DatabaseFactory } from "./infrastructure/db/DatabaseFactory";
-import { DatabaseWishRepository } from "./adapters/secondary/DatabaseWishRepository";
+import { DatabaseWishRepositoryAdapter } from "./adapters/secondary/DatabaseWishRepositoryAdapter";
 import { DatabaseSessionService } from "./adapters/secondary/DatabaseSessionService";
 import { WebServerFactory } from "./infrastructure/web/WebServerFactory";
 // import { configurePassport } from "./config/express-passport";
@@ -23,7 +23,7 @@ async function bootstrap() {
     console.log("Passport configured successfully.");
 
     // リポジトリとサービスの初期化
-    const wishRepository = new DatabaseWishRepository(dbConnection);
+    const wishRepository = new DatabaseWishRepositoryAdapter(dbConnection);
     const sessionService = new DatabaseSessionService(dbConnection);
 
     // Webサーバーのインスタンスをファクトリーから取得

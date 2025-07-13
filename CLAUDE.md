@@ -90,6 +90,21 @@ Key environment variables:
 - `DB_USER`: Database user (default: postgres)
 - `DB_PASSWORD`: Database password (default: password)
 - `PORT`: Server port (default: 3000)
+- `LOG_LEVEL`: Logging level - `error`, `warn`, `info`, `debug` (default: `error` in production, `info` in development)
+
+### Logging Configuration
+
+The application uses a hierarchical logging system controlled by the `LOG_LEVEL` environment variable:
+
+- `error`: Only error messages (default in production)
+- `warn`: Error and warning messages
+- `info`: Error, warning, and informational messages (default in development)
+- `debug`: All messages including detailed debug information
+
+To enable debug logging for troubleshooting support operations:
+```bash
+LOG_LEVEL=debug npm run dev
+```
 
 ### Testing Structure
 

@@ -1,5 +1,7 @@
 import { Wish } from "../../domain/entities/Wish";
-import { WishRepository } from "../../domain/repositories/WishRepository";
+import { WishRepository } from "../../ports/output/WishRepository";
+import { UserId } from "../../domain/value-objects/UserId";
+import { SessionId } from "../../domain/value-objects/SessionId";
 
 /**
  * ユーザーIDまたはセッションIDに基づいて、ユーザーの既存の願い事を取得するユースケース
@@ -15,7 +17,7 @@ export class GetUserWishUseCase {
   async execute(userId?: number, sessionId?: string): Promise<Wish | null> {
     // 1. ログインユーザーの場合、ユーザーIDで検索
     if (userId) {
-      const wish = await this.wishRepository.findByUserId(userId);
+      const wish = await this.wishRepository.findByUserId(UserId.fromNumber(userId));
       if (wish) {
         return wish;
       }
@@ -23,7 +25,7 @@ export class GetUserWishUseCase {
 
     // 2. 匿名ユーザーの場合、セッションIDで検索
     if (sessionId) {
-      const wish = await this.wishRepository.findBySessionId(sessionId);
+      const wish = await this.wishRepository.findBySessionId(SessionId.fromString(sessionId));
       if (wish) {
         return wish;
       }

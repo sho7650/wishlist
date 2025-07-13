@@ -1,178 +1,218 @@
 import { Logger } from "../../../src/utils/Logger";
 
 describe("Logger", () => {
-  let consoleSpy: jest.SpyInstance;
   let originalNodeEnv: string | undefined;
+  let originalLogLevel: string | undefined;
 
   beforeEach(() => {
     originalNodeEnv = process.env.NODE_ENV;
+    originalLogLevel = process.env.LOG_LEVEL;
     // Reset console spies before each test
     jest.clearAllMocks();
   });
 
   afterEach(() => {
-    // Restore original NODE_ENV
+    // Restore original environment variables
     if (originalNodeEnv !== undefined) {
       process.env.NODE_ENV = originalNodeEnv;
     } else {
       delete process.env.NODE_ENV;
     }
     
-    // Restore console methods if they were spied on
-    if (consoleSpy) {
-      consoleSpy.mockRestore();
+    if (originalLogLevel !== undefined) {
+      process.env.LOG_LEVEL = originalLogLevel;
+    } else {
+      delete process.env.LOG_LEVEL;
     }
   });
 
-  describe("log", () => {
-    it("should call console.log in non-production environment", () => {
-      // Arrange
-      process.env.NODE_ENV = "development";
-      consoleSpy = jest.spyOn(console, "log").mockImplementation();
-
-      // Act
-      Logger.log("test message", "arg1", "arg2");
-
-      // Assert
-      expect(consoleSpy).toHaveBeenCalledWith("test message", "arg1", "arg2");
+  describe("LOG_LEVEL=error", () => {
+    beforeEach(() => {
+      process.env.LOG_LEVEL = "error";
     });
 
-    it("should not call console.log in production environment", () => {
-      // Arrange
-      process.env.NODE_ENV = "production";
-      consoleSpy = jest.spyOn(console, "log").mockImplementation();
+    it("should only log error messages", () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation();
+      const infoSpy = jest.spyOn(console, "info").mockImplementation();
+      const debugSpy = jest.spyOn(console, "debug").mockImplementation();
 
-      // Act
-      Logger.log("test message");
+      Logger.error("error message");
+      Logger.warn("warn message");
+      Logger.info("info message");
+      Logger.debug("debug message");
 
-      // Assert
-      expect(consoleSpy).not.toHaveBeenCalled();
+      expect(errorSpy).toHaveBeenCalledWith("error message", undefined);
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(infoSpy).not.toHaveBeenCalled();
+      expect(debugSpy).not.toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+      infoSpy.mockRestore();
+      debugSpy.mockRestore();
     });
   });
 
-  describe("error", () => {
-    it("should always call console.error regardless of environment", () => {
-      // Arrange
+  describe("LOG_LEVEL=warn", () => {
+    beforeEach(() => {
+      process.env.LOG_LEVEL = "warn";
+    });
+
+    it("should log error and warn messages", () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation();
+      const infoSpy = jest.spyOn(console, "info").mockImplementation();
+      const debugSpy = jest.spyOn(console, "debug").mockImplementation();
+
+      Logger.error("error message");
+      Logger.warn("warn message");
+      Logger.info("info message");
+      Logger.debug("debug message");
+
+      expect(errorSpy).toHaveBeenCalledWith("error message", undefined);
+      expect(warnSpy).toHaveBeenCalledWith("warn message");
+      expect(infoSpy).not.toHaveBeenCalled();
+      expect(debugSpy).not.toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+      infoSpy.mockRestore();
+      debugSpy.mockRestore();
+    });
+  });
+
+  describe("LOG_LEVEL=info", () => {
+    beforeEach(() => {
+      process.env.LOG_LEVEL = "info";
+    });
+
+    it("should log error, warn, and info messages", () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation();
+      const infoSpy = jest.spyOn(console, "info").mockImplementation();
+      const debugSpy = jest.spyOn(console, "debug").mockImplementation();
+
+      Logger.error("error message");
+      Logger.warn("warn message");
+      Logger.info("info message");
+      Logger.debug("debug message");
+
+      expect(errorSpy).toHaveBeenCalledWith("error message", undefined);
+      expect(warnSpy).toHaveBeenCalledWith("warn message");
+      expect(infoSpy).toHaveBeenCalledWith("info message");
+      expect(debugSpy).not.toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+      infoSpy.mockRestore();
+      debugSpy.mockRestore();
+    });
+  });
+
+  describe("LOG_LEVEL=debug", () => {
+    beforeEach(() => {
+      process.env.LOG_LEVEL = "debug";
+    });
+
+    it("should log all message types", () => {
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation();
+      const infoSpy = jest.spyOn(console, "info").mockImplementation();
+      const debugSpy = jest.spyOn(console, "debug").mockImplementation();
+
+      Logger.error("error message");
+      Logger.warn("warn message");
+      Logger.info("info message");
+      Logger.debug("debug message");
+
+      expect(errorSpy).toHaveBeenCalledWith("error message", undefined);
+      expect(warnSpy).toHaveBeenCalledWith("warn message");
+      expect(infoSpy).toHaveBeenCalledWith("info message");
+      expect(debugSpy).toHaveBeenCalledWith("debug message");
+
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+      infoSpy.mockRestore();
+      debugSpy.mockRestore();
+    });
+  });
+
+  describe("default behavior", () => {
+    it("should use ERROR level in production environment", () => {
       process.env.NODE_ENV = "production";
-      consoleSpy = jest.spyOn(console, "error").mockImplementation();
+      delete process.env.LOG_LEVEL;
+
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+      const infoSpy = jest.spyOn(console, "info").mockImplementation();
+
+      Logger.error("error message");
+      Logger.info("info message");
+
+      expect(errorSpy).toHaveBeenCalledWith("error message", undefined);
+      expect(infoSpy).not.toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+      infoSpy.mockRestore();
+    });
+
+    it("should use INFO level in development environment", () => {
+      process.env.NODE_ENV = "development";
+      delete process.env.LOG_LEVEL;
+
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+      const infoSpy = jest.spyOn(console, "info").mockImplementation();
+      const debugSpy = jest.spyOn(console, "debug").mockImplementation();
+
+      Logger.error("error message");
+      Logger.info("info message");
+      Logger.debug("debug message");
+
+      expect(errorSpy).toHaveBeenCalledWith("error message", undefined);
+      expect(infoSpy).toHaveBeenCalledWith("info message");
+      expect(debugSpy).not.toHaveBeenCalled();
+
+      errorSpy.mockRestore();
+      infoSpy.mockRestore();
+      debugSpy.mockRestore();
+    });
+  });
+
+  describe("error method with Error object", () => {
+    it("should log error message with Error object", () => {
+      process.env.LOG_LEVEL = "error";
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
       const error = new Error("test error");
 
-      // Act
-      Logger.error("test error message", error);
+      Logger.error("error message", error);
 
-      // Assert
-      expect(consoleSpy).toHaveBeenCalledWith("test error message", error);
-    });
+      expect(errorSpy).toHaveBeenCalledWith("error message", error);
 
-    it("should call console.error without error object", () => {
-      // Arrange
-      process.env.NODE_ENV = "development";
-      consoleSpy = jest.spyOn(console, "error").mockImplementation();
-
-      // Act
-      Logger.error("test error message");
-
-      // Assert
-      expect(consoleSpy).toHaveBeenCalledWith("test error message", undefined);
+      errorSpy.mockRestore();
     });
   });
 
-  describe("warn", () => {
-    it("should call console.warn in non-production environment", () => {
-      // Arrange
-      process.env.NODE_ENV = "development";
-      consoleSpy = jest.spyOn(console, "warn").mockImplementation();
+  describe("log method", () => {
+    it("should behave like info level", () => {
+      process.env.LOG_LEVEL = "info";
+      const logSpy = jest.spyOn(console, "log").mockImplementation();
 
-      // Act
-      Logger.warn("test warning", "arg1");
+      Logger.log("log message", "arg1", "arg2");
 
-      // Assert
-      expect(consoleSpy).toHaveBeenCalledWith("test warning", "arg1");
+      expect(logSpy).toHaveBeenCalledWith("log message", "arg1", "arg2");
+
+      logSpy.mockRestore();
     });
 
-    it("should not call console.warn in production environment", () => {
-      // Arrange
-      process.env.NODE_ENV = "production";
-      consoleSpy = jest.spyOn(console, "warn").mockImplementation();
+    it("should not log when level is below info", () => {
+      process.env.LOG_LEVEL = "warn";
+      const logSpy = jest.spyOn(console, "log").mockImplementation();
 
-      // Act
-      Logger.warn("test warning");
+      Logger.log("log message");
 
-      // Assert
-      expect(consoleSpy).not.toHaveBeenCalled();
-    });
-  });
+      expect(logSpy).not.toHaveBeenCalled();
 
-  describe("info", () => {
-    it("should call console.info in non-production environment", () => {
-      // Arrange
-      process.env.NODE_ENV = "development";
-      consoleSpy = jest.spyOn(console, "info").mockImplementation();
-
-      // Act
-      Logger.info("test info", "arg1");
-
-      // Assert
-      expect(consoleSpy).toHaveBeenCalledWith("test info", "arg1");
-    });
-
-    it("should not call console.info in production environment", () => {
-      // Arrange
-      process.env.NODE_ENV = "production";
-      consoleSpy = jest.spyOn(console, "info").mockImplementation();
-
-      // Act
-      Logger.info("test info");
-
-      // Assert
-      expect(consoleSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("debug", () => {
-    it("should call console.debug when DEBUG env var is set and not in production", () => {
-      // Arrange
-      process.env.NODE_ENV = "development";
-      process.env.DEBUG = "true";
-      consoleSpy = jest.spyOn(console, "debug").mockImplementation();
-
-      // Act
-      Logger.debug("test debug", "arg1");
-
-      // Assert
-      expect(consoleSpy).toHaveBeenCalledWith("test debug", "arg1");
-      
-      // Cleanup DEBUG env var
-      delete process.env.DEBUG;
-    });
-
-    it("should not call console.debug when DEBUG env var is not set", () => {
-      // Arrange
-      process.env.NODE_ENV = "development";
-      delete process.env.DEBUG;
-      consoleSpy = jest.spyOn(console, "debug").mockImplementation();
-
-      // Act
-      Logger.debug("test debug");
-
-      // Assert
-      expect(consoleSpy).not.toHaveBeenCalled();
-    });
-
-    it("should not call console.debug in production environment even with DEBUG set", () => {
-      // Arrange
-      process.env.NODE_ENV = "production";
-      process.env.DEBUG = "true";
-      consoleSpy = jest.spyOn(console, "debug").mockImplementation();
-
-      // Act
-      Logger.debug("test debug");
-
-      // Assert
-      expect(consoleSpy).not.toHaveBeenCalled();
-      
-      // Cleanup DEBUG env var
-      delete process.env.DEBUG;
+      logSpy.mockRestore();
     });
   });
 });

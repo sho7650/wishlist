@@ -1,5 +1,7 @@
 import { Wish } from "../../domain/entities/Wish";
-import { WishRepository } from "../../domain/repositories/WishRepository";
+import { WishRepository } from "../../ports/output/WishRepository";
+import { UserId } from "../../domain/value-objects/UserId";
+import { SessionId } from "../../domain/value-objects/SessionId";
 
 /**
  * ログインユーザー、または匿名セッションユーザーの願い事を更新するユースケース
@@ -23,13 +25,13 @@ export class UpdateWishUseCase {
 
     // 1. まずログインユーザーとして、自分の投稿を探す
     if (userId) {
-      wishToUpdate = await this.wishRepository.findByUserId(userId);
+      wishToUpdate = await this.wishRepository.findByUserId(UserId.fromNumber(userId));
     }
 
     // 2. ログインしていない、またはログインユーザーの投稿が見つからない場合、
     //    セッションIDで匿名の投稿を探す
     if (!wishToUpdate && sessionId) {
-      wishToUpdate = await this.wishRepository.findBySessionId(sessionId);
+      wishToUpdate = await this.wishRepository.findBySessionId(SessionId.fromString(sessionId));
     }
 
     // 3. 更新対象の願い事が見つからなかった場合
