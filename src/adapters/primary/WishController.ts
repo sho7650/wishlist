@@ -46,6 +46,7 @@ export class WishController {
   public createWish = async (req: Request, res: Response): Promise<void> => {
     try {
       const { name, wish } = req.body;
+      console.log('[CONTROLLER] Creating wish:', { name: name?.substring(0, 20), wish: wish?.substring(0, 50) });
 
       if (!wish) {
         res.status(400).json({ error: "願い事は必須です" });
@@ -54,13 +55,17 @@ export class WishController {
 
       const sessionId = req.cookies.sessionId;
       const userId = req.user?.id;
+      console.log('[CONTROLLER] User info:', { sessionId, userId });
+      
       // 投稿を作成
+      console.log('[CONTROLLER] Calling createWishUseCase.execute...');
       const result = await this.createWishUseCase.execute(
         name,
         wish,
         sessionId,
         userId
       );
+      console.log('[CONTROLLER] createWishUseCase.execute completed successfully');
 
       // Cookieを設定
       res.cookie("sessionId", result.sessionId, {
@@ -69,8 +74,11 @@ export class WishController {
         sameSite: "strict",
       });
 
+      console.log('[CONTROLLER] Sending successful response');
       res.status(201).json({ wish: result.wish });
     } catch (error: unknown) {
+      console.error('[CONTROLLER] Error in createWish:', error);
+      console.error('[CONTROLLER] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });

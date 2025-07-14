@@ -14,6 +14,9 @@ import {
 } from "../../application/usecases";
 import { WishRepository } from "../../ports/output/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
+import { WishService } from "../../application/services/WishService";
+import { EventPublisher } from "../../ports/output/EventPublisher";
+import { MockEventPublisher } from "../../adapters/secondary/MockEventPublisher";
 
 export class KoaServerBuilder implements ServerBuilderStrategy {
   public build(
@@ -23,7 +26,11 @@ export class KoaServerBuilder implements ServerBuilderStrategy {
   ): WebServer {
     console.log("Building Koa server with strategy...");
 
-    const createWishUseCase = new CreateWishUseCase(wishRepository as any);
+    // Create dependencies for WishService
+    const eventPublisher: EventPublisher = new MockEventPublisher();
+    const wishService = new WishService(wishRepository, sessionService, eventPublisher);
+
+    const createWishUseCase = new CreateWishUseCase(wishService);
     const updateWishUseCase = new UpdateWishUseCase(wishRepository);
     const getWishBySessionUseCase = new GetWishBySessionUseCase(wishRepository);
     const getLatestWishesUseCase = new GetLatestWishesUseCase(wishRepository);

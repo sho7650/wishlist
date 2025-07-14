@@ -12,13 +12,22 @@ interface User {
 }
 
 export function configureKoaPassport(db: DatabaseConnection) {
+  // SQLite compatibility: detect parameter syntax
+  const isSQLite = process.env.DB_TYPE?.toLowerCase() === 'sqlite';
+  const param1 = isSQLite ? '?' : '$1';
+  const param2 = isSQLite ? '?' : '$2';
+  const param3 = isSQLite ? '?' : '$3';
+  const param4 = isSQLite ? '?' : '$4';
   koaPassport.serializeUser((user: any, done) => {
+    if (!user || typeof user.id === "undefined") {
+      return done(new Error("Invalid user object for serialization."), null);
+    }
     done(null, user.id);
   });
 
   koaPassport.deserializeUser(async (id: number, done) => {
     try {
-      const result = await db.query("SELECT * FROM users WHERE id = $1", [id]);
+      const result = await db.query(`SELECT * FROM users WHERE id = ${param1}`, [id]);
       const user = result.rows[0];
       done(null, user || false);
     } catch (error) {
@@ -43,7 +52,7 @@ export function configureKoaPassport(db: DatabaseConnection) {
               ? profile.photos[0].value
               : null;
           const existingUserResult = await db.query(
-            "SELECT * FROM users WHERE google_id = $1",
+            `SELECT * FROM users WHERE google_id = ${param1}`,
             [profile.id]
           );
 
@@ -51,17 +60,17 @@ export function configureKoaPassport(db: DatabaseConnection) {
             console.log("User already exists:", existingUserResult.rows[0]);
             const existingUser = existingUserResult.rows[0];
             const updateUserQuery =
-              "UPDATE users SET display_name = $1, picture = $2 WHERE google_id = $3 RETURNING *";
+              `UPDATE users SET display_name = ${param1}, picture = ${param2} WHERE google_id = ${param3} RETURNING *`;
             const updatedUserResult = await db.query(updateUserQuery, [
               profile.displayName,
               pictureUrl,
               profile.id,
             ]);
-            return done(null, existingUserResult.rows[0]);
+            return done(null, updatedUserResult.rows[0]);
           }
 
           const newUserQuery =
-            "INSERT INTO users (google_id, display_name, email, picture) VALUES ($1, $2, $3, $4) RETURNING *";
+            `INSERT INTO users (google_id, display_name, email, picture) VALUES (${param1}, ${param2}, ${param3}, ${param4}) RETURNING *`;
 
           const newUserResult = await db.query(newUserQuery, [
             profile.id,

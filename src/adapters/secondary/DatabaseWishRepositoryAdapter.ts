@@ -24,14 +24,27 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
   async save(wish: Wish, userId?: number): Promise<void> {
     const startTime = Date.now();
     try {
-      await this.queryExecutor.upsert('wishes', {
+      const wishData = {
         id: wish.id,
         name: wish.name || null,
         wish: wish.wish,
-        created_at: wish.createdAt,
+        created_at: wish.createdAt ? wish.createdAt.toISOString() : new Date().toISOString(),
         user_id: userId || null,
         support_count: wish.supportCount,
-      }, ['id']);
+      };
+      
+      // Debug logging for SQLite
+      Logger.debug('[REPO] Saving wish data:', {
+        id: wishData.id,
+        name: wishData.name,
+        wish: wishData.wish?.substring(0, 50),
+        created_at: wishData.created_at,
+        created_at_type: typeof wishData.created_at,
+        user_id: wishData.user_id,
+        support_count: wishData.support_count
+      });
+      
+      await this.queryExecutor.upsert('wishes', wishData, ['id']);
       
       const duration = Date.now() - startTime;
       if (duration > 100) {
