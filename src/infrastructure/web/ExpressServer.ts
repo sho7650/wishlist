@@ -3,7 +3,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import path from "path";
 import helmet from "helmet";
-import { WishController } from "../../adapters/primary/WishController";
+import { WishController } from "../../adapters/primary/ExpressWishController";
 import { WebServer } from "./WebServer";
 import session from "express-session";
 import passport from "passport";
@@ -15,7 +15,7 @@ export class ExpressServer implements WebServer {
   private app = express();
 
   constructor(
-    dbConnection: any, 
+    dbConnection: any,
     private wishController: WishController,
     private authenticationAdapter?: ExpressAuthenticationAdapter
   ) {
@@ -121,11 +121,20 @@ export class ExpressServer implements WebServer {
     this.app.get("/api/wishes/current", this.wishController.getCurrentWish);
     this.app.get("/api/wishes", this.wishController.getLatestWishes);
     this.app.get("/api/user/wish", this.wishController.getUserWish);
-    
+
     // 応援機能のルート
-    this.app.post("/api/wishes/:wishId/support", this.wishController.supportWish);
-    this.app.delete("/api/wishes/:wishId/support", this.wishController.unsupportWish);
-    this.app.get("/api/wishes/:wishId/support", this.wishController.getWishSupportStatus);
+    this.app.post(
+      "/api/wishes/:wishId/support",
+      this.wishController.supportWish
+    );
+    this.app.delete(
+      "/api/wishes/:wishId/support",
+      this.wishController.unsupportWish
+    );
+    this.app.get(
+      "/api/wishes/:wishId/support",
+      this.wishController.getWishSupportStatus
+    );
 
     this.app.get(/.*/, (req, res, next) => {
       if (req.path.startsWith("/api/")) {
@@ -156,10 +165,16 @@ export class ExpressServer implements WebServer {
         {
           clientID: process.env.GOOGLE_CLIENT_ID!,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-          callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
+          callbackURL:
+            process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
         },
         (accessToken, refreshToken, profile, done) => {
-          this.authenticationAdapter!.handleGoogleCallback(accessToken, refreshToken, profile, done);
+          this.authenticationAdapter!.handleGoogleCallback(
+            accessToken,
+            refreshToken,
+            profile,
+            done
+          );
         }
       )
     );

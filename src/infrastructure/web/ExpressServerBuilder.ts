@@ -1,7 +1,7 @@
 import { ServerBuilderStrategy } from "./ServerBuilderStrategy";
 import { WebServer } from "./WebServer";
 import { ExpressServer } from "./ExpressServer";
-import { WishController } from "../../adapters/primary/WishController";
+import { WishController } from "../../adapters/primary/ExpressWishController";
 import {
   CreateWishUseCase,
   UpdateWishUseCase,
@@ -35,14 +35,24 @@ export class ExpressServerBuilder implements ServerBuilderStrategy {
 
     // Create dependencies for WishService
     const eventPublisher: EventPublisher = new MockEventPublisher();
-    const wishService = new WishService(wishRepository, sessionService, eventPublisher);
+    const wishService = new WishService(
+      wishRepository,
+      sessionService,
+      eventPublisher
+    );
 
     // Create authentication dependencies
     let authenticationAdapter: ExpressAuthenticationAdapter | undefined;
     if (queryExecutor) {
-      const userRepository: UserRepositoryPort = new DatabaseUserRepositoryAdapter(queryExecutor);
-      const authenticationService = new AuthenticationService(userRepository, eventPublisher);
-      authenticationAdapter = new ExpressAuthenticationAdapter(authenticationService);
+      const userRepository: UserRepositoryPort =
+        new DatabaseUserRepositoryAdapter(queryExecutor);
+      const authenticationService = new AuthenticationService(
+        userRepository,
+        eventPublisher
+      );
+      authenticationAdapter = new ExpressAuthenticationAdapter(
+        authenticationService
+      );
     }
 
     const createWishUseCase = new CreateWishUseCase(wishService);
@@ -52,7 +62,9 @@ export class ExpressServerBuilder implements ServerBuilderStrategy {
     const getUserWishUseCase = new GetUserWishUseCase(wishRepository);
     const supportWishUseCase = new SupportWishUseCase(wishRepository);
     const unsupportWishUseCase = new UnsupportWishUseCase(wishRepository);
-    const getWishSupportStatusUseCase = new GetWishSupportStatusUseCase(wishRepository);
+    const getWishSupportStatusUseCase = new GetWishSupportStatusUseCase(
+      wishRepository
+    );
 
     const wishController = new WishController(
       createWishUseCase,
@@ -65,6 +77,10 @@ export class ExpressServerBuilder implements ServerBuilderStrategy {
       getWishSupportStatusUseCase
     );
 
-    return new ExpressServer(dbConnection, wishController, authenticationAdapter);
+    return new ExpressServer(
+      dbConnection,
+      wishController,
+      authenticationAdapter
+    );
   }
 }
