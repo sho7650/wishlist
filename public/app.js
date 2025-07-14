@@ -158,7 +158,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // Get current user info
       const userResponse = await fetch("/api/user");
       let currentUser = null;
-      if (userResponse.ok && userResponse.headers.get("content-length") !== "0") {
+      if (
+        userResponse.ok &&
+        userResponse.headers.get("content-length") !== "0"
+      ) {
         try {
           currentUser = await userResponse.json();
         } catch (jsonError) {
@@ -166,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
           currentUser = null;
         }
       }
-      
+
       const response = await fetch(`/api/wishes?limit=20&offset=${offset}`);
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`);
@@ -183,20 +186,21 @@ document.addEventListener("DOMContentLoaded", () => {
           card.className = "wish-card";
           const hue = Math.floor(Math.random() * 360);
           card.style.backgroundColor = `hsl(${hue}, 70%, 90%)`;
-          
+
           // Check if this wish belongs to the current user
-          const isOwnWish = currentUser && wish.userId && currentUser.id === wish.userId;
-          const buttonClass = wish.isSupported ? 'supported' : '';
-          const buttonDisabled = isOwnWish ? 'disabled' : '';
-          const buttonTitle = isOwnWish ? '自分の投稿には応援できません' : '';
-          
+          const isOwnWish =
+            currentUser && wish.userId && currentUser.id === wish.userId;
+          const buttonClass = wish.isSupported ? "supported" : "";
+          const buttonDisabled = isOwnWish ? "disabled" : "";
+          const buttonTitle = isOwnWish ? "自分の投稿には応援できません" : "";
+
           card.innerHTML = `
             <div class="wish-content">${escapeHTML(wish.wish)}</div>
             <div class="wish-author">- ${escapeHTML(wish.name || "匿名")}</div>
             <div class="wish-support">
               <button class="support-button ${buttonClass} ${buttonDisabled}" 
                       data-wish-id="${wish.id}" 
-                      ${isOwnWish ? 'disabled' : ''}
+                      ${isOwnWish ? "disabled" : ""}
                       title="${buttonTitle}">
                 <span class="star-icon">⭐</span>
                 <span class="support-count">${wish.supportCount || 0}</span>
@@ -368,15 +372,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 応援ボタンのクリックイベント（楽観的UI実装）
   wishesList.addEventListener("click", async (e) => {
-    if (e.target.classList.contains("support-button") || e.target.closest(".support-button")) {
+    if (
+      e.target.classList.contains("support-button") ||
+      e.target.closest(".support-button")
+    ) {
       const button = e.target.closest(".support-button");
       const wishId = button.getAttribute("data-wish-id");
-      
+
       // 現在の状態を保存（ロールバック用）
       const countElement = button.querySelector(".support-count");
       const originalCount = parseInt(countElement.textContent) || 0;
       const originalIsSupported = button.classList.contains("supported");
-      
+
       // 楽観的UI更新：即座に状態を反映
       let newCount, newIsSupported;
       if (originalIsSupported) {
@@ -388,7 +395,7 @@ document.addEventListener("DOMContentLoaded", () => {
         newCount = originalCount + 1;
         newIsSupported = true;
       }
-      
+
       // UIを即座に更新
       countElement.textContent = newCount;
       if (newIsSupported) {
@@ -396,30 +403,32 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         button.classList.remove("supported");
       }
-      
+
       // ボタンを一時的に無効化（連続クリック防止）
       button.disabled = true;
-      
+
       try {
         // API呼び出し
         let response;
         if (originalIsSupported) {
           // 応援を取り消す
           response = await fetch(`/api/wishes/${wishId}/support`, {
-            method: "DELETE"
+            method: "DELETE",
           });
         } else {
           // 応援する
           response = await fetch(`/api/wishes/${wishId}/support`, {
-            method: "POST"
+            method: "POST",
           });
         }
-        
+
         if (response.ok) {
           // 成功時：サーバーから最新の状態を取得して同期
-          const updatedStatusResponse = await fetch(`/api/wishes/${wishId}/support`);
+          const updatedStatusResponse = await fetch(
+            `/api/wishes/${wishId}/support`
+          );
           const updatedStatusData = await updatedStatusResponse.json();
-          
+
           // サーバーの状態で最終的に同期
           countElement.textContent = updatedStatusData.wish.supportCount || 0;
           if (updatedStatusData.isSupported) {
@@ -433,16 +442,21 @@ document.addEventListener("DOMContentLoaded", () => {
           if (errorData.code === "SELF_SUPPORT_NOT_ALLOWED") {
             showStatus("自分の投稿には応援できません", "error");
           } else {
-            showStatus(errorData.error || "この操作は許可されていません", "error");
+            showStatus(
+              errorData.error || "この操作は許可されていません",
+              "error"
+            );
           }
         } else {
           // その他のエラー
           const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `API call failed with status ${response.status}`);
+          throw new Error(
+            errorData.error || `API call failed with status ${response.status}`
+          );
         }
       } catch (error) {
         console.error("Error handling support action:", error);
-        
+
         // 失敗時：元の状態にロールバック
         countElement.textContent = originalCount;
         if (originalIsSupported) {
@@ -450,9 +464,12 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           button.classList.remove("supported");
         }
-        
+
         // ユーザーにエラーを通知
-        showStatus("応援の処理中にエラーが発生しました。もう一度お試しください。", "error");
+        showStatus(
+          "応援の処理中にエラーが発生しました。もう一度お試しください。",
+          "error"
+        );
       } finally {
         // ボタンを再度有効化
         button.disabled = false;
@@ -485,23 +502,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- 流れ星アニメーション関数 ---
   function createShootingStar() {
-    const star = document.createElement('div');
-    star.className = 'shooting-star';
-    
+    const star = document.createElement("div");
+    star.className = "shooting-star";
+
     // ランダムな開始位置（画面の右上付近）
-    const startX = window.innerWidth * 0.7 + Math.random() * window.innerWidth * 0.3;
+    const startX =
+      window.innerWidth * 0.7 + Math.random() * window.innerWidth * 0.3;
     const startY = Math.random() * window.innerHeight * 0.3;
-    
-    star.style.left = startX + 'px';
-    star.style.top = startY + 'px';
-    
+
+    star.style.left = startX + "px";
+    star.style.top = startY + "px";
+
     document.body.appendChild(star);
-    
+
     // アニメーション開始
     setTimeout(() => {
-      star.classList.add('animate');
+      star.classList.add("animate");
     }, 100);
-    
+
     // アニメーション終了後に要素を削除
     setTimeout(() => {
       if (star.parentNode) {
@@ -509,7 +527,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }, 2100);
   }
-  
+
   // 流れ星を定期的に生成（3-8秒間隔）
   function scheduleNextShootingStar() {
     const delay = Math.random() * 5000 + 3000; // 3-8秒
