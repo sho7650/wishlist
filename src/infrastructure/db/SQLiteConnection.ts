@@ -16,18 +16,30 @@ export class SQLiteConnection implements DatabaseConnection {
     Logger.debug(`[SQLite] Parameters:`, params);
 
     try {
+      // Validate SQL text before preparing statement
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        throw new Error('Invalid SQL query: empty or null query text');
+      }
+
       // better-sqlite3 is synchronous, so we wrap it in async
       let result: any;
       let changes = 0;
+      let stmt: Database.Statement;
+
+      // Prepare statement (this can throw for invalid SQL)
+      try {
+        stmt = this.db.prepare(text);
+      } catch (prepareError: any) {
+        Logger.error(`[SQLite] SQL preparation error: ${prepareError.message}`);
+        throw new Error(`SQL syntax error: ${prepareError.message}`);
+      }
       
       if (text.trim().toUpperCase().startsWith('SELECT')) {
         // For SELECT queries, use prepare().all()
-        const stmt = this.db.prepare(text);
         result = stmt.all(params);
         changes = result?.length || 0;
       } else {
         // For INSERT/UPDATE/DELETE, use prepare().run()
-        const stmt = this.db.prepare(text);
         const info = stmt.run(params);
         changes = info.changes;
         
@@ -49,6 +61,7 @@ export class SQLiteConnection implements DatabaseConnection {
       };
     } catch (err: any) {
       Logger.error(`[SQLite] Query error: ${err.message}`);
+      // Ensure we always throw an error for invalid queries
       throw err;
     }
   }

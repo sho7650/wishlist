@@ -76,9 +76,27 @@ describe("SQLiteConnection", () => {
     });
 
     it("should handle query errors", async () => {
+      // Test various types of invalid SQL
       await expect(
-        connection.query("INVALID SQL SYNTAX", [])
+        connection.query("SELECT FROM", [])
+      ).rejects.toThrow(/SQL syntax error/);
+
+      await expect(
+        connection.query("INVALID SQL SYNTAX GARBAGE", [])
+      ).rejects.toThrow(/SQL syntax error/);
+
+      await expect(
+        connection.query("SELECT * FROM non_existent_table_12345", [])
       ).rejects.toThrow();
+
+      // Test empty/null queries
+      await expect(
+        connection.query("", [])
+      ).rejects.toThrow(/Invalid SQL query/);
+
+      await expect(
+        connection.query("   ", [])
+      ).rejects.toThrow(/Invalid SQL query/);
     });
   });
 
