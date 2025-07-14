@@ -5,6 +5,7 @@ import { ExpressServerBuilder } from "./ExpressServerBuilder";
 import { KoaServerBuilder } from "./KoaServerBuilder";
 import { WishRepository } from "../../ports/output/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
+import { QueryExecutor } from "../db/query/QueryExecutor";
 
 export class WebServerFactory {
   private static strategies: { [key: string]: ServerBuilderStrategy } = {
@@ -15,7 +16,8 @@ export class WebServerFactory {
   static createServer(
     dbConnection: any, // ここは実際のDB接続型に置き換える
     wishRepository: WishRepository,
-    sessionService: SessionService
+    sessionService: SessionService,
+    queryExecutor?: QueryExecutor
   ): WebServer {
     const framework = (process.env.WEB_FRAMEWORK || "express").toLowerCase();
 
@@ -28,7 +30,8 @@ export class WebServerFactory {
       return new KoaServerBuilder().build(
         dbConnection,
         wishRepository,
-        sessionService
+        sessionService,
+        queryExecutor
       );
     }
 
@@ -36,7 +39,8 @@ export class WebServerFactory {
     return new ExpressServerBuilder().build(
       dbConnection,
       wishRepository,
-      sessionService
+      sessionService,
+      queryExecutor
     );
   }
 }

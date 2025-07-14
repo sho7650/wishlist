@@ -10,7 +10,10 @@ import fs from "fs";
 import { WebServer } from "./WebServer";
 import { KoaWishAdapter } from "../../adapters/primary/KoaWishAdapter";
 import session from "koa-session";
-import { koaPassport, configureKoaPassport } from "../../config/koa-passport";
+import koaPassport from "koa-passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { KoaAuthenticationAdapter } from "../../adapters/primary/KoaAuthenticationAdapter";
+import { configureKoaPassport } from "../../config/koa-passport";
 
 export class KoaServer implements WebServer {
   private app: Koa;
@@ -18,15 +21,21 @@ export class KoaServer implements WebServer {
 
   constructor(
     private dbConnection: any,
-    private koaWishAdapter: KoaWishAdapter
+    private koaWishAdapter: KoaWishAdapter,
+    private authenticationAdapter?: KoaAuthenticationAdapter
   ) {
     this.app = new Koa();
     this.router = new Router();
 
-    configureKoaPassport(this.dbConnection);
     this.app.keys = [process.env.SESSION_SECRET || "default_dev_secret"];
 
-    // パスポート設定
+    // Configure Passport with authentication adapter if available
+    if (this.authenticationAdapter) {
+      this.configurePassportWithAdapter();
+    } else {
+      // Fall back to legacy configuration
+      configureKoaPassport(this.dbConnection);
+    }
 
     this.setupMiddleware();
     this.setupRoutes();
@@ -128,6 +137,36 @@ export class KoaServer implements WebServer {
         );
       }
     });
+  }
+
+  /**
+   * Configure Passport with authentication adapter
+   */
+  private configurePassportWithAdapter(): void {
+    if (!this.authenticationAdapter) return;
+
+    // Configure Passport serialization using the adapter
+    koaPassport.serializeUser((user: any, done) => {
+      this.authenticationAdapter!.serializeUser(user, done);
+    });
+
+    koaPassport.deserializeUser((id: string, done) => {
+      this.authenticationAdapter!.deserializeUser(id, done);
+    });
+
+    // Configure Google Strategy using the adapter
+    koaPassport.use(
+      new GoogleStrategy(
+        {
+          clientID: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
+        },
+        (accessToken, refreshToken, profile, done) => {
+          this.authenticationAdapter!.handleGoogleCallback(accessToken, refreshToken, profile, done);
+        }
+      )
+    );
   }
 
   public start(port: number): void {

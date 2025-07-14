@@ -1,5 +1,5 @@
 import { ExpressServer } from "../../../../src/infrastructure/web/ExpressServer";
-import { WishController } from "../../../../src/adapters/primary/WishController";
+import { WishController } from "../../../../src/adapters/primary/ExpressWishController";
 
 // --- モックの設定 ---
 // 共有のモックインスタンスを定義
@@ -41,7 +41,16 @@ jest.mock("passport-oauth2", () => {
 class MockWishController extends WishController {
   constructor() {
     // superにはダミーのモックを渡す
-    super({} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any, {} as any);
+    super(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any
+    );
     // メソッドをjestのモック関数で上書き
     this.createWish = jest.fn();
     this.updateWish = jest.fn();

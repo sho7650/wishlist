@@ -5,7 +5,7 @@ import { KoaServer } from "../../../../src/infrastructure/web/KoaServer";
 // 実際の依存関係をモック
 jest.mock("../../../../src/infrastructure/web/ExpressServer");
 jest.mock("../../../../src/infrastructure/web/KoaServer");
-jest.mock("../../../../src/adapters/primary/WishController");
+jest.mock("../../../../src/adapters/primary/ExpressWishController");
 jest.mock("../../../../src/adapters/primary/KoaWishAdapter");
 
 describe("WebServerFactory", () => {

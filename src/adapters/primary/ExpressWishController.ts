@@ -7,7 +7,7 @@ import { GetUserWishUseCase } from "../../application/usecases/GetUserWishUseCas
 import { SupportWishUseCase } from "../../application/usecases/SupportWishUseCase";
 import { UnsupportWishUseCase } from "../../application/usecases/UnsupportWishUseCase";
 import { GetWishSupportStatusUseCase } from "../../application/usecases/GetWishSupportStatusUseCase";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 
 export class WishController {
   constructor(
@@ -25,13 +25,17 @@ export class WishController {
    * 匿名ユーザーのセッションIDを確保する
    * 既存のセッションIDがある場合はそれを使用し、無い場合は新しく生成する
    */
-  private ensureSessionId(req: Request, res: Response, userId?: number): string {
+  private ensureSessionId(
+    req: Request,
+    res: Response,
+    userId?: number
+  ): string {
     let sessionId = req.cookies.sessionId;
-    
+
     // 匿名ユーザーでセッションIDが無い場合は新しいセッションIDを生成
     if (!sessionId && !userId) {
       sessionId = uuidv4();
-      
+
       // セッションIDをクッキーに設定
       res.cookie("sessionId", sessionId, {
         httpOnly: true,
@@ -39,14 +43,17 @@ export class WishController {
         sameSite: "strict",
       });
     }
-    
+
     return sessionId;
   }
 
   public createWish = async (req: Request, res: Response): Promise<void> => {
     try {
       const { name, wish } = req.body;
-      console.log('[CONTROLLER] Creating wish:', { name: name?.substring(0, 20), wish: wish?.substring(0, 50) });
+      console.log("[CONTROLLER] Creating wish:", {
+        name: name?.substring(0, 20),
+        wish: wish?.substring(0, 50),
+      });
 
       if (!wish) {
         res.status(400).json({ error: "願い事は必須です" });
@@ -55,17 +62,19 @@ export class WishController {
 
       const sessionId = req.cookies.sessionId;
       const userId = req.user?.id;
-      console.log('[CONTROLLER] User info:', { sessionId, userId });
-      
+      console.log("[CONTROLLER] User info:", { sessionId, userId });
+
       // 投稿を作成
-      console.log('[CONTROLLER] Calling createWishUseCase.execute...');
+      console.log("[CONTROLLER] Calling createWishUseCase.execute...");
       const result = await this.createWishUseCase.execute(
         name,
         wish,
         sessionId,
         userId
       );
-      console.log('[CONTROLLER] createWishUseCase.execute completed successfully');
+      console.log(
+        "[CONTROLLER] createWishUseCase.execute completed successfully"
+      );
 
       // Cookieを設定
       res.cookie("sessionId", result.sessionId, {
@@ -74,11 +83,14 @@ export class WishController {
         sameSite: "strict",
       });
 
-      console.log('[CONTROLLER] Sending successful response');
+      console.log("[CONTROLLER] Sending successful response");
       res.status(201).json({ wish: result.wish });
     } catch (error: unknown) {
-      console.error('[CONTROLLER] Error in createWish:', error);
-      console.error('[CONTROLLER] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error("[CONTROLLER] Error in createWish:", error);
+      console.error(
+        "[CONTROLLER] Error stack:",
+        error instanceof Error ? error.stack : "No stack trace"
+      );
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";
       res.status(400).json({ error: errorMessage });
@@ -144,9 +156,9 @@ export class WishController {
 
       // 応援状況を含めて取得
       const wishes = await this.getLatestWishesUseCase.executeWithSupportStatus(
-        limit, 
-        offset, 
-        sessionId, 
+        limit,
+        offset,
+        sessionId,
         userId
       );
       res.status(200).json({ wishes });
@@ -191,40 +203,44 @@ export class WishController {
       // セッションIDを確保
       sessionId = this.ensureSessionId(req, res, userId);
 
-      const result = await this.supportWishUseCase.execute(wishId, sessionId, userId);
+      const result = await this.supportWishUseCase.execute(
+        wishId,
+        sessionId,
+        userId
+      );
 
       if (result.alreadySupported) {
-        res.status(200).json({ 
-          message: "既に応援済みです", 
-          success: true, 
-          alreadySupported: true 
+        res.status(200).json({
+          message: "既に応援済みです",
+          success: true,
+          alreadySupported: true,
         });
         return;
       }
 
-      res.status(200).json({ 
-        message: "応援しました", 
-        success: true, 
-        alreadySupported: false 
+      res.status(200).json({
+        message: "応援しました",
+        success: true,
+        alreadySupported: false,
       });
     } catch (error: unknown) {
       const errorMessage =
         error instanceof Error ? error.message : "不明なエラーが発生しました";
-      
+
       // Handle specific business rule errors with appropriate status codes
       if (errorMessage === "作者は自分の願いに応援できません") {
-        res.status(403).json({ 
+        res.status(403).json({
           error: errorMessage,
-          code: "SELF_SUPPORT_NOT_ALLOWED"
+          code: "SELF_SUPPORT_NOT_ALLOWED",
         });
         return;
       }
-      
+
       if (errorMessage === "願い事が見つかりません") {
         res.status(404).json({ error: errorMessage });
         return;
       }
-      
+
       res.status(400).json({ error: errorMessage });
     }
   };
@@ -243,21 +259,25 @@ export class WishController {
       // セッションIDを確保
       sessionId = this.ensureSessionId(req, res, userId);
 
-      const result = await this.unsupportWishUseCase.execute(wishId, sessionId, userId);
+      const result = await this.unsupportWishUseCase.execute(
+        wishId,
+        sessionId,
+        userId
+      );
 
       if (!result.wasSupported) {
-        res.status(200).json({ 
-          message: "応援していませんでした", 
-          success: true, 
-          wasSupported: false 
+        res.status(200).json({
+          message: "応援していませんでした",
+          success: true,
+          wasSupported: false,
         });
         return;
       }
 
-      res.status(200).json({ 
-        message: "応援を取り消しました", 
-        success: true, 
-        wasSupported: true 
+      res.status(200).json({
+        message: "応援を取り消しました",
+        success: true,
+        wasSupported: true,
       });
     } catch (error: unknown) {
       const errorMessage =
@@ -266,7 +286,10 @@ export class WishController {
     }
   };
 
-  public getWishSupportStatus = async (req: Request, res: Response): Promise<void> => {
+  public getWishSupportStatus = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     try {
       const { wishId } = req.params;
       let sessionId = req.cookies.sessionId;
@@ -280,7 +303,11 @@ export class WishController {
       // セッションIDを確保
       sessionId = this.ensureSessionId(req, res, userId);
 
-      const result = await this.getWishSupportStatusUseCase.execute(wishId, sessionId, userId);
+      const result = await this.getWishSupportStatusUseCase.execute(
+        wishId,
+        sessionId,
+        userId
+      );
 
       res.status(200).json({
         isSupported: result.isSupported,

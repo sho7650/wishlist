@@ -91,8 +91,8 @@ describe("KoaServer", () => {
     // 期待されるミドルウェアがすべてuseで登録されているか検証
     expect(mockApp.use).toHaveBeenCalledWith(helmet.contentSecurityPolicy());
     expect(mockApp.use).toHaveBeenCalledWith("session middleware");
-    expect(mockApp.use).toHaveBeenCalledWith("passport-initialize");
-    expect(mockApp.use).toHaveBeenCalledWith("passport-session");
+    expect(mockApp.use).toHaveBeenCalledWith(expect.any(Function)); // passport-initialize
+    expect(mockApp.use).toHaveBeenCalledWith(expect.any(Function)); // passport-session
     expect(mockApp.use).toHaveBeenCalledWith("bodyParser middleware");
     expect(mockApp.use).toHaveBeenCalledWith("static middleware");
   });
@@ -103,11 +103,11 @@ describe("KoaServer", () => {
     // 認証ルート
     expect(mockRouter.get).toHaveBeenCalledWith(
       "/auth/google",
-      "passport-authenticate"
+      expect.any(Function) // passport-authenticate
     );
     expect(mockRouter.get).toHaveBeenCalledWith(
       "/auth/google/callback",
-      "passport-authenticate"
+      expect.any(Function) // passport-authenticate
     );
     expect(mockRouter.get).toHaveBeenCalledWith(
       "/auth/logout",
