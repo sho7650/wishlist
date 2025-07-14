@@ -5,12 +5,20 @@ import { WishContent } from "../../../../src/domain/value-objects/WishContent";
 import { UserId } from "../../../../src/domain/value-objects/UserId";
 import { SessionId } from "../../../../src/domain/value-objects/SessionId";
 import { SupportCount } from "../../../../src/domain/value-objects/SupportCount";
+import { QueryExecutor } from "../../../../src/infrastructure/db/query/QueryExecutor";
 
-// データベース接続をモック
-const mockDbConnection = {
-  query: jest.fn(),
-  initializeDatabase: jest.fn(),
-  close: jest.fn(),
+// QueryExecutorをモック
+const mockQueryExecutor: jest.Mocked<QueryExecutor> = {
+  insert: jest.fn(),
+  select: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  upsert: jest.fn(),
+  selectWithJoin: jest.fn(),
+  incrementSupportCount: jest.fn(),
+  decrementSupportCount: jest.fn(),
+  updateSupportCount: jest.fn(),
+  raw: jest.fn(),
 };
 
 describe("DatabaseWishRepositoryAdapter", () => {
@@ -18,7 +26,7 @@ describe("DatabaseWishRepositoryAdapter", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    repository = new DatabaseWishRepositoryAdapter(mockDbConnection);
+    repository = new DatabaseWishRepositoryAdapter(mockQueryExecutor);
   });
 
   describe("save", () => {
@@ -30,20 +38,21 @@ describe("DatabaseWishRepositoryAdapter", () => {
         name: "テスト太郎"
       });
 
-      mockDbConnection.query.mockResolvedValue({ rows: [], rowCount: 1 });
+      mockQueryExecutor.upsert.mockResolvedValue({ rows: [], rowCount: 1 });
 
       await repository.save(wish, 1);
 
-      expect(mockDbConnection.query).toHaveBeenCalledWith(
-        expect.stringContaining("INSERT INTO wishes"),
-        expect.arrayContaining([
-          "123",
-          "テスト太郎",
-          "テストの願い事",
-          expect.any(Date),
-          1,
-          0,
-        ])
+      expect(mockQueryExecutor.upsert).toHaveBeenCalledWith(
+        'wishes',
+        {
+          id: "123",
+          name: "テスト太郎",
+          wish: "テストの願い事",
+          created_at: expect.any(Date),
+          user_id: 1,
+          support_count: 0,
+        },
+        ['id']
       );
     });
 
@@ -56,7 +65,7 @@ describe("DatabaseWishRepositoryAdapter", () => {
       });
 
       const error = new Error("Database error");
-      mockDbConnection.query.mockRejectedValue(error);
+      mockQueryExecutor.upsert.mockRejectedValue(error);
 
       await expect(repository.save(wish, 1)).rejects.toThrow("Database error");
     });
@@ -74,7 +83,10 @@ describe("DatabaseWishRepositoryAdapter", () => {
         support_count: 5,
       };
 
-      mockDbConnection.query.mockResolvedValue({ rows: [mockRow] });
+      // Mock both select calls (main query and supporters query)
+      mockQueryExecutor.select
+        .mockResolvedValueOnce({ rows: [mockRow] })  // Main wish query
+        .mockResolvedValueOnce({ rows: [] });        // Supporters query
 
       const result = await repository.findById(wishId);
 
@@ -83,11 +95,15 @@ describe("DatabaseWishRepositoryAdapter", () => {
       expect(result!.name).toBe("テスト太郎");
       expect(result!.wish).toBe("テストの願い事");
       expect(result!.supportCount).toBe(5);
+
+      expect(mockQueryExecutor.select).toHaveBeenCalledWith('wishes', {
+        where: { id: "123" }
+      });
     });
 
     it("should return null when wish is not found", async () => {
       const wishId = WishId.fromString("nonexistent");
-      mockDbConnection.query.mockResolvedValue({ rows: [] });
+      mockQueryExecutor.select.mockResolvedValue({ rows: [] });
 
       const result = await repository.findById(wishId);
 
@@ -107,18 +123,26 @@ describe("DatabaseWishRepositoryAdapter", () => {
         support_count: 3,
       };
 
-      mockDbConnection.query.mockResolvedValue({ rows: [mockRow] });
+      mockQueryExecutor.select
+        .mockResolvedValueOnce({ rows: [mockRow] })  // Main query
+        .mockResolvedValueOnce({ rows: [] });        // Supporters query
 
       const result = await repository.findByUserId(userId);
 
       expect(result).toBeDefined();
-      expect(result!.userId).toBe(1);
-      expect(result!.wish).toBe("ユーザーの願い事");
+      expect(result!.id).toBe("123");
+      expect(result!.name).toBe("テスト太郎");
+
+      expect(mockQueryExecutor.select).toHaveBeenCalledWith('wishes', {
+        where: { user_id: 1 },
+        orderBy: [{ column: 'created_at', direction: 'DESC' }],
+        limit: 1
+      });
     });
 
-    it("should return null when user has no wishes", async () => {
+    it("should return null when no wish found for user", async () => {
       const userId = UserId.fromNumber(999);
-      mockDbConnection.query.mockResolvedValue({ rows: [] });
+      mockQueryExecutor.select.mockResolvedValue({ rows: [] });
 
       const result = await repository.findByUserId(userId);
 
@@ -128,135 +152,37 @@ describe("DatabaseWishRepositoryAdapter", () => {
 
   describe("findBySessionId", () => {
     it("should return a wish for the session", async () => {
-      const sessionId = SessionId.fromString("session-123");
+      const sessionId = SessionId.fromString("session123");
       const mockRow = {
-        id: "456",
+        id: "123",
         name: null,
-        wish: "匿名の願い事",
+        wish: "セッションの願い事",
         created_at: new Date("2025-01-01"),
         user_id: null,
         support_count: 2,
       };
 
-      // Mock multiple query calls: findBySessionId, sessions lookup, and supporters lookup
-      mockDbConnection.query
-        .mockResolvedValueOnce({ rows: [mockRow] }) // findBySessionId query
-        .mockResolvedValueOnce({ rows: [{ session_id: "session-123" }] }) // sessions lookup
-        .mockResolvedValueOnce({ rows: [] }); // supporters lookup
+      mockQueryExecutor.selectWithJoin
+        .mockResolvedValueOnce({ rows: [mockRow] });  // Main query
+
+      mockQueryExecutor.select
+        .mockResolvedValueOnce({ rows: [{ session_id: "session123" }] })  // Session query
+        .mockResolvedValueOnce({ rows: [] });  // Supporters query
 
       const result = await repository.findBySessionId(sessionId);
 
       expect(result).toBeDefined();
-      expect(result!.id).toBe("456");
-      expect(result!.wish).toBe("匿名の願い事");
-      expect(result!.userId).toBeUndefined();
-    });
-  });
+      expect(result!.id).toBe("123");
+      expect(result!.wish).toBe("セッションの願い事");
 
-  describe("addSupport", () => {
-    it("should add support for a user", async () => {
-      const wishId = WishId.fromString("123");
-      const userId = UserId.fromNumber(2);
-
-      // Mock hasSupported to return false (not already supported)
-      mockDbConnection.query.mockResolvedValueOnce({ rows: [] });
-      // Mock insert support
-      mockDbConnection.query.mockResolvedValueOnce({ rowCount: 1 });
-      // Mock update support count
-      mockDbConnection.query.mockResolvedValueOnce({ rowCount: 1 });
-
-      await repository.addSupport(wishId, undefined, userId);
-
-      expect(mockDbConnection.query).toHaveBeenCalledTimes(3);
-      expect(mockDbConnection.query).toHaveBeenNthCalledWith(2,
-        expect.stringContaining("INSERT INTO supports"),
-        ["123", null, 2]
-      );
-    });
-
-    it("should add support for a session", async () => {
-      const wishId = WishId.fromString("123");
-      const sessionId = SessionId.fromString("session-456");
-
-      // Mock hasSupported to return false
-      mockDbConnection.query.mockResolvedValueOnce({ rows: [] });
-      // Mock insert support
-      mockDbConnection.query.mockResolvedValueOnce({ rowCount: 1 });
-      // Mock update support count
-      mockDbConnection.query.mockResolvedValueOnce({ rowCount: 1 });
-
-      await repository.addSupport(wishId, sessionId, undefined);
-
-      expect(mockDbConnection.query).toHaveBeenNthCalledWith(2,
-        expect.stringContaining("INSERT INTO supports"),
-        ["123", "session-456", null]
-      );
-    });
-
-    it("should skip adding support if already supported", async () => {
-      const wishId = WishId.fromString("123");
-      const userId = UserId.fromNumber(2);
-
-      // Mock hasSupported to return true (already supported)
-      mockDbConnection.query.mockResolvedValueOnce({ rows: [{ exists: true }] });
-
-      await repository.addSupport(wishId, undefined, userId);
-
-      // Should only call hasSupported, not insert
-      expect(mockDbConnection.query).toHaveBeenCalledTimes(1);
-    });
-  });
-
-  describe("removeSupport", () => {
-    it("should remove support from a user", async () => {
-      const wishId = WishId.fromString("123");
-      const userId = UserId.fromNumber(2);
-
-      // Mock delete support
-      mockDbConnection.query.mockResolvedValueOnce({ rowCount: 1 });
-      // Mock update support count
-      mockDbConnection.query.mockResolvedValueOnce({ rowCount: 1 });
-
-      await repository.removeSupport(wishId, undefined, userId);
-
-      expect(mockDbConnection.query).toHaveBeenCalledTimes(2);
-      expect(mockDbConnection.query).toHaveBeenNthCalledWith(1,
-        expect.stringContaining("DELETE FROM supports"),
-        ["123", 2]
-      );
-    });
-  });
-
-  describe("hasSupported", () => {
-    it("should return true when user has supported", async () => {
-      const wishId = WishId.fromString("123");
-      const userId = UserId.fromNumber(2);
-
-      mockDbConnection.query.mockResolvedValue({ rows: [{}] });
-
-      const result = await repository.hasSupported(wishId, undefined, userId);
-
-      expect(result).toBe(true);
-    });
-
-    it("should return false when user has not supported", async () => {
-      const wishId = WishId.fromString("123");
-      const userId = UserId.fromNumber(2);
-
-      mockDbConnection.query.mockResolvedValue({ rows: [] });
-
-      const result = await repository.hasSupported(wishId, undefined, userId);
-
-      expect(result).toBe(false);
-    });
-
-    it("should return false when neither userId nor sessionId provided", async () => {
-      const wishId = WishId.fromString("123");
-
-      const result = await repository.hasSupported(wishId, undefined, undefined);
-
-      expect(result).toBe(false);
-      expect(mockDbConnection.query).not.toHaveBeenCalled();
+      expect(mockQueryExecutor.selectWithJoin).toHaveBeenCalledWith({
+        mainTable: 'wishes',
+        joins: [
+          { table: 'sessions', on: 'wishes.id = sessions.wish_id', type: 'INNER' }
+        ],
+        select: ['wishes.*'],
+        where: { 'sessions.session_id': "session123" }
+      });
     });
   });
 
@@ -265,34 +191,159 @@ describe("DatabaseWishRepositoryAdapter", () => {
       const mockRows = [
         {
           id: "123",
-          name: "テスト1",
-          wish: "願い事1",
+          name: "テスト太郎",
+          wish: "最新の願い事",
           created_at: new Date("2025-01-02"),
           user_id: 1,
-          support_count: 5,
+          support_count: 1,
         },
         {
-          id: "456",
-          name: null,
-          wish: "願い事2",
+          id: "124",
+          name: "テスト花子",
+          wish: "2番目の願い事",
           created_at: new Date("2025-01-01"),
-          user_id: null,
-          support_count: 3,
+          user_id: 2,
+          support_count: 0,
         },
       ];
 
-      // Mock the main query
-      mockDbConnection.query.mockResolvedValueOnce({ rows: mockRows });
-      // Mock session lookup for anonymous wishes
-      mockDbConnection.query.mockResolvedValue({ rows: [{ session_id: "session-123" }] });
-      // Mock supporters lookup
-      mockDbConnection.query.mockResolvedValue({ rows: [] });
+      mockQueryExecutor.select
+        .mockResolvedValueOnce({ rows: mockRows })  // Main query
+        .mockResolvedValue({ rows: [] });  // Supporters queries
 
-      const result = await repository.findLatest(10, 0);
+      const result = await repository.findLatest(2, 0);
 
       expect(result).toHaveLength(2);
       expect(result[0].id).toBe("123");
-      expect(result[1].id).toBe("456");
+      expect(result[1].id).toBe("124");
+
+      expect(mockQueryExecutor.select).toHaveBeenCalledWith('wishes', {
+        orderBy: [{ column: 'created_at', direction: 'DESC' }],
+        limit: 2,
+        offset: 0
+      });
+    });
+  });
+
+  describe("addSupport", () => {
+    it("should add support for a wish", async () => {
+      const wishId = WishId.fromString("123");
+      const sessionId = SessionId.fromString("session123");
+
+      // Mock hasSupported to return false (not already supported)
+      mockQueryExecutor.select.mockResolvedValueOnce({ rows: [] });
+      
+      // Mock insert and updateSupportCount
+      mockQueryExecutor.insert.mockResolvedValue({ rows: [], rowCount: 1 });
+      mockQueryExecutor.updateSupportCount.mockResolvedValue({ rows: [], rowCount: 1 });
+
+      await repository.addSupport(wishId, sessionId);
+
+      expect(mockQueryExecutor.insert).toHaveBeenCalledWith('supports', {
+        wish_id: "123",
+        session_id: "session123",
+        user_id: null,
+        created_at: expect.any(Date)
+      });
+
+      expect(mockQueryExecutor.updateSupportCount).toHaveBeenCalledWith("123");
+    });
+
+    it("should skip if already supported", async () => {
+      const wishId = WishId.fromString("123");
+      const sessionId = SessionId.fromString("session123");
+
+      // Mock hasSupported to return true (already supported)
+      mockQueryExecutor.select.mockResolvedValue({ rows: [{ id: 1 }] });
+
+      await repository.addSupport(wishId, sessionId);
+
+      // Should not call insert or update
+      expect(mockQueryExecutor.insert).not.toHaveBeenCalled();
+      expect(mockQueryExecutor.updateSupportCount).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("removeSupport", () => {
+    it("should remove support by session ID", async () => {
+      const wishId = WishId.fromString("123");
+      const sessionId = SessionId.fromString("session123");
+
+      mockQueryExecutor.delete.mockResolvedValue({ rows: [], rowCount: 1 });
+      mockQueryExecutor.updateSupportCount.mockResolvedValue({ rows: [], rowCount: 1 });
+
+      await repository.removeSupport(wishId, sessionId);
+
+      expect(mockQueryExecutor.delete).toHaveBeenCalledWith('supports', {
+        wish_id: "123",
+        session_id: "session123"
+      });
+
+      expect(mockQueryExecutor.updateSupportCount).toHaveBeenCalledWith("123");
+    });
+
+    it("should remove support by user ID", async () => {
+      const wishId = WishId.fromString("123");
+      const userId = UserId.fromNumber(1);
+
+      mockQueryExecutor.delete.mockResolvedValue({ rows: [], rowCount: 1 });
+      mockQueryExecutor.updateSupportCount.mockResolvedValue({ rows: [], rowCount: 1 });
+
+      await repository.removeSupport(wishId, undefined, userId);
+
+      expect(mockQueryExecutor.delete).toHaveBeenCalledWith('supports', {
+        wish_id: "123",
+        user_id: 1
+      });
+    });
+  });
+
+  describe("hasSupported", () => {
+    it("should return true if user has supported", async () => {
+      const wishId = WishId.fromString("123");
+      const userId = UserId.fromNumber(1);
+
+      mockQueryExecutor.select.mockResolvedValue({ rows: [{ id: 1 }] });
+
+      const result = await repository.hasSupported(wishId, undefined, userId);
+
+      expect(result).toBe(true);
+      expect(mockQueryExecutor.select).toHaveBeenCalledWith('supports', {
+        columns: ['1'],
+        where: {
+          wish_id: "123",
+          user_id: 1
+        },
+        limit: 1
+      });
+    });
+
+    it("should return false if session has not supported", async () => {
+      const wishId = WishId.fromString("123");
+      const sessionId = SessionId.fromString("session123");
+
+      mockQueryExecutor.select.mockResolvedValue({ rows: [] });
+
+      const result = await repository.hasSupported(wishId, sessionId);
+
+      expect(result).toBe(false);
+      expect(mockQueryExecutor.select).toHaveBeenCalledWith('supports', {
+        columns: ['1'],
+        where: {
+          wish_id: "123",
+          session_id: "session123"
+        },
+        limit: 1
+      });
+    });
+
+    it("should return false if no identifier provided", async () => {
+      const wishId = WishId.fromString("123");
+
+      const result = await repository.hasSupported(wishId);
+
+      expect(result).toBe(false);
+      expect(mockQueryExecutor.select).not.toHaveBeenCalled();
     });
   });
 });

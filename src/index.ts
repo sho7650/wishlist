@@ -23,7 +23,8 @@ async function bootstrap() {
     console.log("Passport configured successfully.");
 
     // リポジトリとサービスの初期化
-    const wishRepository = new DatabaseWishRepositoryAdapter(dbConnection);
+    const queryExecutor = DatabaseFactory.createQueryExecutor(dbConnection);
+    const wishRepository = new DatabaseWishRepositoryAdapter(queryExecutor);
     const sessionService = new DatabaseSessionService(dbConnection);
 
     // Webサーバーのインスタンスをファクトリーから取得
