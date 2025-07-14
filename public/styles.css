@@ -470,6 +470,51 @@ header > div {
   object-fit: cover; /* 画像が円の中に綺麗に収まるようにする */
 }
 
+/* --- 流れ星アニメーション --- */
+.shooting-star {
+  position: fixed;
+  width: 2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 4px #fff, 0 0 8px #fff, 0 0 12px #ffd700;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.shooting-star::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 150px;
+  height: 1px;
+  background: linear-gradient(to left, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.8) 100%);
+  transform-origin: 0 50%;
+  transform: rotate(-45deg);
+}
+
+@keyframes shootingStar {
+  0% {
+    transform: translateX(calc(100vw + 100px)) translateY(-100px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-100px) translateY(calc(100vh + 100px));
+    opacity: 0;
+  }
+}
+
+.shooting-star.animate {
+  animation: shootingStar 2s linear;
+}
+
 /* 画面幅が768px以下の場合に適用されるスタイル */
 @media (max-width: 768px) {
   /* ヘッダーのレイアウトを縦並びに変更 */
