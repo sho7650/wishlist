@@ -13,6 +13,12 @@ interface User {
 }
 
 export function configureExpressPassport(db: DatabaseConnection) {
+  // SQLite compatibility: detect parameter syntax
+  const isSQLite = process.env.DB_TYPE?.toLowerCase() === 'sqlite';
+  const param1 = isSQLite ? '?' : '$1';
+  const param2 = isSQLite ? '?' : '$2';
+  const param3 = isSQLite ? '?' : '$3';
+  const param4 = isSQLite ? '?' : '$4';
   passport.serializeUser((user: any, done) => {
     if (!user || typeof user.id === "undefined") {
       return done(new Error("Invalid user object for serialization."), null);
@@ -24,7 +30,7 @@ export function configureExpressPassport(db: DatabaseConnection) {
   // セッションからユーザー情報を復元する方法を定義
   passport.deserializeUser(async (id: number, done) => {
     try {
-      const result = await db.query("SELECT * FROM users WHERE id = $1", [id]);
+      const result = await db.query(`SELECT * FROM users WHERE id = ${param1}`, [id]);
       const user = result.rows[0];
 
       if (user) {
@@ -59,7 +65,7 @@ export function configureExpressPassport(db: DatabaseConnection) {
               : null;
           // 1. GoogleプロファイルIDで既存ユーザーを探す
           const currentUserResult = await db.query(
-            "SELECT * FROM users WHERE google_id = $1",
+            `SELECT * FROM users WHERE google_id = ${param1}`,
             [profile.id]
           );
 
@@ -67,17 +73,17 @@ export function configureExpressPassport(db: DatabaseConnection) {
             // 2. ユーザーが存在する場合
             const existingUser = currentUserResult.rows[0];
             const updateUserQuery =
-              "UPDATE users SET display_name = $1, picture = $2 WHERE google_id = $3 RETURNING *";
+              `UPDATE users SET display_name = ${param1}, picture = ${param2} WHERE google_id = ${param3} RETURNING *`;
             const updatedUserResult = await db.query(updateUserQuery, [
               profile.displayName,
               pictureUrl,
               profile.id,
             ]);
-            done(null, currentUserResult.rows[0]);
+            done(null, updatedUserResult.rows[0]);
           } else {
             // 3. ユーザーが存在しない場合、新しく作成する
             const newUserQuery =
-              "INSERT INTO users (google_id, display_name, email, picture) VALUES ($1, $2, $3, $4) RETURNING *";
+              `INSERT INTO users (google_id, display_name, email, picture) VALUES (${param1}, ${param2}, ${param3}, ${param4}) RETURNING *`;
             const newUserResult = await db.query(newUserQuery, [
               profile.id,
               profile.displayName,

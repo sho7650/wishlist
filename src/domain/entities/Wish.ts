@@ -81,8 +81,8 @@ export class Wish {
       props.supportCount,
       props.supporters,
       props.name,
-      props.createdAt,
-      props.updatedAt,
+      props.createdAt || new Date(),
+      props.updatedAt || new Date(),
       props.isSupported
     );
     
@@ -98,8 +98,8 @@ export class Wish {
       props.supportCount,
       props.supporters,
       props.name,
-      props.createdAt,
-      props.updatedAt,
+      props.createdAt || new Date(),
+      props.updatedAt || new Date(),
       props.isSupported
     );
   }

@@ -337,13 +337,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const method = isEditMode ? "PUT" : "POST";
 
     try {
+      console.log('[FRONTEND] Submitting wish:', { name: name?.substring(0, 20), wish: wish?.substring(0, 50) });
+      
       const response = await fetch(url, {
         method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, wish }),
       });
 
+      console.log('[FRONTEND] Response status:', response.status);
+      console.log('[FRONTEND] Response headers:', Object.fromEntries(response.headers.entries()));
+
       const data = await response.json();
+      console.log('[FRONTEND] Response data:', data);
 
       if (response.ok) {
         showStatus(
@@ -359,10 +365,16 @@ document.addEventListener("DOMContentLoaded", () => {
           updatePostButtonState(); // ★追加：閲覧画面に戻った時にボタンを更新
         }, 1000);
       } else {
+        console.error('[FRONTEND] Server error response:', data);
         showStatus(data.error || "エラーが発生しました", "error");
       }
     } catch (error) {
       console.error("Error submitting form:", error);
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       showStatus("通信エラーが発生しました", "error");
     }
   });

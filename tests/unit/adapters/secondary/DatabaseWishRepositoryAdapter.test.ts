@@ -48,7 +48,7 @@ describe("DatabaseWishRepositoryAdapter", () => {
           id: "123",
           name: "テスト太郎",
           wish: "テストの願い事",
-          created_at: expect.any(Date),
+          created_at: expect.any(String),
           user_id: 1,
           support_count: 0,
         },

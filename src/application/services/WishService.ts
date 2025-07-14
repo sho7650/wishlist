@@ -47,7 +47,8 @@ export class WishService {
     wish.clearDomainEvents();
 
     const newSessionId = sessionId || this.sessionService.generateSessionId();
-    await this.sessionService.linkSessionToWish(newSessionId, wish.id.value);
+    console.log('[WISH_SERVICE] Linking session to wish:', { newSessionId, wishId: wish.id });
+    await this.sessionService.linkSessionToWish(newSessionId, wish.id);
 
     return { wish, sessionId: newSessionId };
   }

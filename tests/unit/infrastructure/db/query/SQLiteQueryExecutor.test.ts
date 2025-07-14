@@ -117,6 +117,30 @@ describe("SQLiteQueryExecutor", () => {
         ["123"]
       );
     });
+
+    it("should exclude created_at from updates but include it in insert", async () => {
+      const mockResult: DatabaseResult = { rows: [], rowCount: 1 };
+      mockConnection.query.mockResolvedValue(mockResult);
+
+      const data = { id: "123", name: "Test", created_at: "2024-01-01T00:00:00Z", value: 42 };
+      const conflictColumns = ["id"];
+
+      await queryExecutor.upsert("test_table", data, conflictColumns);
+
+      expect(mockConnection.query).toHaveBeenCalledWith(
+        expect.stringContaining("ON CONFLICT (id) DO UPDATE SET"),
+        ["123", "Test", "2024-01-01T00:00:00Z", 42]
+      );
+      
+      const query = mockConnection.query.mock.calls[0][0] as string;
+      expect(query).toContain("name = excluded.name");
+      expect(query).toContain("value = excluded.value");
+      expect(query).not.toContain("created_at = excluded.created_at"); // Should not update created_at
+      expect(query).not.toContain("id = excluded.id"); // Should not update conflict column
+      
+      // But should include created_at in the INSERT part
+      expect(query).toContain("INSERT INTO test_table (id, name, created_at, value)");
+    });
   });
 
   describe("selectWithJoin", () => {

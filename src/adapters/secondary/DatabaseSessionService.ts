@@ -10,18 +10,30 @@ export class DatabaseSessionService implements SessionService {
   }
 
   async linkSessionToWish(sessionId: string, wishId: string): Promise<void> {
+    // SQLite compatibility: detect parameter syntax
+    const isSQLite = process.env.DB_TYPE?.toLowerCase() === 'sqlite';
+    const param1 = isSQLite ? '?' : '$1';
+    const param2 = isSQLite ? '?' : '$2';
+    const param3 = isSQLite ? '?' : '$3';
+    
     // 日付オブジェクトの代わりにISO文字列を使用
     const currentDate = new Date().toISOString();
     
+    console.log('[SESSION_SERVICE] linkSessionToWish parameters:', { sessionId, wishId, currentDate });
+    
     await this.db.query(
-      'INSERT INTO sessions (session_id, wish_id, created_at) VALUES ($1, $2, $3)',
+      `INSERT INTO sessions (session_id, wish_id, created_at) VALUES (${param1}, ${param2}, ${param3})`,
       [sessionId, wishId, currentDate]
     );
   }
 
   async getWishIdBySession(sessionId: string): Promise<string | null> {
+    // SQLite compatibility: detect parameter syntax
+    const isSQLite = process.env.DB_TYPE?.toLowerCase() === 'sqlite';
+    const param1 = isSQLite ? '?' : '$1';
+    
     const result = await this.db.query(
-      'SELECT wish_id FROM sessions WHERE session_id = $1',
+      `SELECT wish_id FROM sessions WHERE session_id = ${param1}`,
       [sessionId]
     );
 

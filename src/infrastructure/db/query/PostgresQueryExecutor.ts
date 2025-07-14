@@ -92,8 +92,10 @@ export class PostgresQueryExecutor implements QueryExecutor {
     const placeholders = values.map((_, i) => `$${i + 1}`);
 
     // PostgreSQL specific ON CONFLICT syntax
+    // Exclude conflict columns and timestamp fields that shouldn't be updated
+    const excludeFromUpdate = [...conflictColumns, 'created_at'];
     const updateClauses = columns
-      .filter(col => !conflictColumns.includes(col))
+      .filter(col => !excludeFromUpdate.includes(col))
       .map(col => `${col} = EXCLUDED.${col}`);
 
     const conflictClause = updateClauses.length > 0 
