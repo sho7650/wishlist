@@ -90,8 +90,10 @@ export class MySQLQueryExecutor implements QueryExecutor {
     const placeholders = values.map(() => '?');
 
     // MySQL specific ON DUPLICATE KEY UPDATE syntax
+    // Exclude conflict columns and timestamp fields that shouldn't be updated
+    const excludeFromUpdate = [...conflictColumns, 'created_at'];
     const updateClauses = columns
-      .filter(col => !conflictColumns.includes(col))
+      .filter(col => !excludeFromUpdate.includes(col))
       .map(col => `${col} = VALUES(${col})`);
 
     const duplicateKeyClause = updateClauses.length > 0 

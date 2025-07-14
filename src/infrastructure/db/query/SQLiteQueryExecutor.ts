@@ -90,8 +90,10 @@ export class SQLiteQueryExecutor implements QueryExecutor {
     const placeholders = values.map(() => '?');
 
     // SQLite specific INSERT OR REPLACE / ON CONFLICT syntax
+    // Exclude conflict columns and timestamp fields that shouldn't be updated
+    const excludeFromUpdate = [...conflictColumns, 'created_at'];
     const updateClauses = columns
-      .filter(col => !conflictColumns.includes(col))
+      .filter(col => !excludeFromUpdate.includes(col))
       .map(col => `${col} = excluded.${col}`);
 
     const conflictClause = updateClauses.length > 0 
