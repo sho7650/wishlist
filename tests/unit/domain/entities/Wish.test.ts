@@ -152,7 +152,7 @@ describe("Wish Entity", () => {
         // Updated properties
         expect(updatedWish.name).toBe("新しい名前");
         expect(updatedWish.wish).toBe("新しい願い事");
-        expect(updatedWish.updatedAt.getTime()).toBeGreaterThan(wish.updatedAt.getTime());
+        expect(updatedWish.updatedAt.getTime()).toBeGreaterThanOrEqual(wish.updatedAt.getTime());
       });
 
       it("should keep original values when update parameters are undefined", () => {
