@@ -243,7 +243,7 @@ describe("DatabaseWishRepositoryAdapter", () => {
         wish_id: "123",
         session_id: "session123",
         user_id: null,
-        created_at: expect.any(Date)
+        created_at: expect.any(String)
       });
 
       expect(mockQueryExecutor.updateSupportCount).toHaveBeenCalledWith("123");

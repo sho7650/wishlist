@@ -169,7 +169,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
         wish_id: wishId.value,
         session_id: userId ? null : (sessionId?.value || null), // ログインユーザーの場合はsession_idをnullに
         user_id: userId?.value || null,
-        created_at: new Date()
+        created_at: new Date().toISOString()
       });
 
       Logger.debug('[REPO] Support inserted', { 

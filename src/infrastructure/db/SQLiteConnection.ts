@@ -1,34 +1,52 @@
 import { DatabaseConnection, DatabaseResult } from "./DatabaseConnection";
 import { Logger } from "../../utils/Logger";
-import * as sqlite3 from "sqlite3";
+import Database from "better-sqlite3";
 
 export class SQLiteConnection implements DatabaseConnection {
-  private db: sqlite3.Database;
+  private db: Database.Database;
 
   constructor() {
     const dbPath = process.env.SQLITE_DB_PATH || './wishlist.db';
     Logger.info(`Connecting to SQLite database: ${dbPath}`);
-    this.db = new sqlite3.Database(dbPath);
+    this.db = new Database(dbPath);
   }
 
   async query(text: string, params: any[]): Promise<DatabaseResult> {
     Logger.debug(`[SQLite] Executing query: ${text.substring(0, 100)}...`);
     Logger.debug(`[SQLite] Parameters:`, params);
 
-    return new Promise((resolve, reject) => {
-      this.db.all(text, params, (err, rows) => {
-        if (err) {
-          Logger.error(`[SQLite] Query error: ${err.message}`);
-          reject(err);
+    try {
+      // better-sqlite3 is synchronous, so we wrap it in async
+      let result: any;
+      
+      if (text.trim().toUpperCase().startsWith('SELECT')) {
+        // For SELECT queries, use prepare().all()
+        const stmt = this.db.prepare(text);
+        result = stmt.all(params);
+      } else {
+        // For INSERT/UPDATE/DELETE, use prepare().run()
+        const stmt = this.db.prepare(text);
+        const info = stmt.run(params);
+        
+        // For non-SELECT queries, check if we need to return inserted data
+        if (text.toUpperCase().includes('RETURNING')) {
+          // SQLite doesn't support RETURNING, so we need to handle this differently
+          // For now, return empty result for non-SELECT queries
+          result = [];
         } else {
-          Logger.debug(`[SQLite] Query result: ${rows?.length || 0} rows`);
-          resolve({
-            rows: rows || [],
-            rowCount: rows?.length || 0
-          });
+          result = [];
         }
-      });
-    });
+      }
+      
+      Logger.debug(`[SQLite] Query result: ${result?.length || 0} rows`);
+      return {
+        rows: result || [],
+        rowCount: result?.length || 0
+      };
+    } catch (err: any) {
+      Logger.error(`[SQLite] Query error: ${err.message}`);
+      throw err;
+    }
   }
 
   async initializeDatabase(): Promise<void> {
@@ -88,16 +106,12 @@ export class SQLiteConnection implements DatabaseConnection {
   }
 
   async close(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.db.close((err) => {
-        if (err) {
-          Logger.error(`[SQLite] Error closing database: ${err.message}`);
-          reject(err);
-        } else {
-          Logger.info("SQLite connection closed");
-          resolve();
-        }
-      });
-    });
+    try {
+      this.db.close();
+      Logger.info("SQLite connection closed");
+    } catch (err: any) {
+      Logger.error(`[SQLite] Error closing database: ${err.message}`);
+      throw err;
+    }
   }
 }

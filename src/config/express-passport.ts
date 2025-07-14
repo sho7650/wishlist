@@ -72,25 +72,62 @@ export function configureExpressPassport(db: DatabaseConnection) {
           if (currentUserResult.rows.length > 0) {
             // 2. ユーザーが存在する場合
             const existingUser = currentUserResult.rows[0];
-            const updateUserQuery =
-              `UPDATE users SET display_name = ${param1}, picture = ${param2} WHERE google_id = ${param3} RETURNING *`;
-            const updatedUserResult = await db.query(updateUserQuery, [
-              profile.displayName,
-              pictureUrl,
-              profile.id,
-            ]);
-            done(null, updatedUserResult.rows[0]);
+            if (isSQLite) {
+              // SQLite doesn't support RETURNING, so update and then select
+              const updateUserQuery =
+                `UPDATE users SET display_name = ${param1}, picture = ${param2} WHERE google_id = ${param3}`;
+              await db.query(updateUserQuery, [
+                profile.displayName,
+                pictureUrl,
+                profile.id,
+              ]);
+              // Get the updated user
+              const updatedUserResult = await db.query(
+                `SELECT * FROM users WHERE google_id = ${param1}`,
+                [profile.id]
+              );
+              done(null, updatedUserResult.rows[0]);
+            } else {
+              // PostgreSQL/MySQL with RETURNING support
+              const updateUserQuery =
+                `UPDATE users SET display_name = ${param1}, picture = ${param2} WHERE google_id = ${param3} RETURNING *`;
+              const updatedUserResult = await db.query(updateUserQuery, [
+                profile.displayName,
+                pictureUrl,
+                profile.id,
+              ]);
+              done(null, updatedUserResult.rows[0]);
+            }
           } else {
             // 3. ユーザーが存在しない場合、新しく作成する
-            const newUserQuery =
-              `INSERT INTO users (google_id, display_name, email, picture) VALUES (${param1}, ${param2}, ${param3}, ${param4}) RETURNING *`;
-            const newUserResult = await db.query(newUserQuery, [
-              profile.id,
-              profile.displayName,
-              profile.emails ? profile.emails[0].value : null,
-              pictureUrl,
-            ]);
-            done(null, newUserResult.rows[0]);
+            if (isSQLite) {
+              // SQLite doesn't support RETURNING, so insert and then select
+              const newUserQuery =
+                `INSERT INTO users (google_id, display_name, email, picture) VALUES (${param1}, ${param2}, ${param3}, ${param4})`;
+              await db.query(newUserQuery, [
+                profile.id,
+                profile.displayName,
+                profile.emails ? profile.emails[0].value : null,
+                pictureUrl,
+              ]);
+              // Get the newly created user
+              const newUserResult = await db.query(
+                `SELECT * FROM users WHERE google_id = ${param1}`,
+                [profile.id]
+              );
+              done(null, newUserResult.rows[0]);
+            } else {
+              // PostgreSQL/MySQL with RETURNING support
+              const newUserQuery =
+                `INSERT INTO users (google_id, display_name, email, picture) VALUES (${param1}, ${param2}, ${param3}, ${param4}) RETURNING *`;
+              const newUserResult = await db.query(newUserQuery, [
+                profile.id,
+                profile.displayName,
+                profile.emails ? profile.emails[0].value : null,
+                pictureUrl,
+              ]);
+              done(null, newUserResult.rows[0]);
+            }
           }
         } catch (err) {
           done(err, false);
