@@ -5,7 +5,7 @@ import { UserId } from "../../domain/value-objects/UserId";
 import { SessionId } from "../../domain/value-objects/SessionId";
 import { SupportCount } from "../../domain/value-objects/SupportCount";
 import { WishRepository } from "../../ports/output/WishRepository";
-import { DatabaseConnection } from "../../infrastructure/db/DatabaseConnection";
+import { QueryExecutor } from "../../infrastructure/db/query/QueryExecutor";
 import { Logger } from "../../utils/Logger";
 
 interface WishRow {
@@ -19,25 +19,20 @@ interface WishRow {
 }
 
 export class DatabaseWishRepositoryAdapter implements WishRepository {
-  constructor(private db: DatabaseConnection) {}
+  constructor(private queryExecutor: QueryExecutor) {}
 
   async save(wish: Wish, userId?: number): Promise<void> {
     const startTime = Date.now();
-    const query = `
-      INSERT INTO wishes (id, name, wish, created_at, user_id, support_count)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT (id) 
-      DO UPDATE SET name = $2, wish = $3, user_id = $5, support_count = $6
-    `;
     try {
-      await this.db.query(query, [
-        wish.id,
-        wish.name || null,
-        wish.wish,
-        wish.createdAt,
-        userId || null,
-        wish.supportCount,
-      ]);
+      await this.queryExecutor.upsert('wishes', {
+        id: wish.id,
+        name: wish.name || null,
+        wish: wish.wish,
+        created_at: wish.createdAt,
+        user_id: userId || null,
+        support_count: wish.supportCount,
+      }, ['id']);
+      
       const duration = Date.now() - startTime;
       if (duration > 100) {
         Logger.warn(`Slow save operation: ${duration}ms`);
@@ -49,9 +44,9 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
   }
 
   async findById(id: WishId): Promise<Wish | null> {
-    const result = await this.db.query("SELECT * FROM wishes WHERE id = $1", [
-      id.value,
-    ]);
+    const result = await this.queryExecutor.select('wishes', {
+      where: { id: id.value }
+    });
 
     if (result.rows.length === 0) {
       return null;
@@ -62,22 +57,24 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
   }
 
   async findByUserId(userId: UserId): Promise<Wish | null> {
-    const result = await this.db.query(
-      "SELECT * FROM wishes WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1",
-      [userId.value]
-    );
+    const result = await this.queryExecutor.select('wishes', {
+      where: { user_id: userId.value },
+      orderBy: [{ column: 'created_at', direction: 'DESC' }],
+      limit: 1
+    });
     if (result.rows.length === 0) return null;
     return await this.mapRowToWish(result.rows[0] as WishRow);
   }
 
   async findBySessionId(sessionId: SessionId): Promise<Wish | null> {
-    const result = await this.db.query(
-      `SELECT w.* 
-     FROM wishes w
-     JOIN sessions s ON w.id = s.wish_id
-     WHERE s.session_id = $1`,
-      [sessionId.value]
-    );
+    const result = await this.queryExecutor.selectWithJoin({
+      mainTable: 'wishes',
+      joins: [
+        { table: 'sessions', on: 'wishes.id = sessions.wish_id', type: 'INNER' }
+      ],
+      select: ['wishes.*'],
+      where: { 'sessions.session_id': sessionId.value }
+    });
 
     if (result.rows.length === 0) {
       return null;
@@ -88,10 +85,11 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
   }
 
   async findLatest(limit: number, offset: number = 0): Promise<Wish[]> {
-    const result = await this.db.query(
-      "SELECT * FROM wishes ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-      [limit, offset]
-    );
+    const result = await this.queryExecutor.select('wishes', {
+      orderBy: [{ column: 'created_at', direction: 'DESC' }],
+      limit,
+      offset
+    });
 
     return Promise.all(result.rows.map(async (row: WishRow) => await this.mapRowToWish(row)));
   }
@@ -103,10 +101,11 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     userId?: UserId
   ): Promise<Wish[]> {
     // Get latest wishes
-    const result = await this.db.query(
-      "SELECT * FROM wishes ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-      [limit, offset]
-    );
+    const result = await this.queryExecutor.select('wishes', {
+      orderBy: [{ column: 'created_at', direction: 'DESC' }],
+      limit,
+      offset
+    });
 
     // Map each wish with support status
     const wishesWithStatus = await Promise.all(
@@ -152,17 +151,13 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       return; // Already supported, do nothing
     }
 
-    const query = `
-      INSERT INTO supports (wish_id, session_id, user_id, created_at)
-      VALUES ($1, $2, $3, NOW())
-    `;
-    
     try {
-      const result = await this.db.query(query, [
-        wishId.value,
-        userId ? null : (sessionId?.value || null), // ログインユーザーの場合はsession_idをnullに
-        userId?.value || null
-      ]);
+      const result = await this.queryExecutor.insert('supports', {
+        wish_id: wishId.value,
+        session_id: userId ? null : (sessionId?.value || null), // ログインユーザーの場合はsession_idをnullに
+        user_id: userId?.value || null,
+        created_at: new Date()
+      });
 
       Logger.debug('[REPO] Support inserted', { 
         wishId: wishId.value,
@@ -170,12 +165,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       });
 
       // Update support count
-      const updateResult = await this.db.query(
-        `UPDATE wishes SET support_count = (
-          SELECT COUNT(*) FROM supports WHERE wish_id = $1
-        ) WHERE id = $1`,
-        [wishId.value]
-      );
+      const updateResult = await this.queryExecutor.updateSupportCount(wishId.value);
 
       Logger.debug('[REPO] Support count updated', { 
         wishId: wishId.value,
@@ -203,20 +193,23 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     let query: string;
     let params: any[];
 
+    let result;
     if (userId) {
       // Remove by user ID (for logged-in users)
-      query = `DELETE FROM supports WHERE wish_id = $1 AND user_id = $2`;
-      params = [wishId.value, userId.value];
+      result = await this.queryExecutor.delete('supports', {
+        wish_id: wishId.value,
+        user_id: userId.value
+      });
     } else if (sessionId) {
       // Remove by session ID (for anonymous users)
-      query = `DELETE FROM supports WHERE wish_id = $1 AND session_id = $2`;
-      params = [wishId.value, sessionId.value];
+      result = await this.queryExecutor.delete('supports', {
+        wish_id: wishId.value,
+        session_id: sessionId.value
+      });
     } else {
       Logger.warn('[REPO] removeSupport called without userId or sessionId', { wishId: wishId.value });
       return;
     }
-    
-    const result = await this.db.query(query, params);
 
     Logger.debug('[REPO] Support removed', { 
       wishId: wishId.value,
@@ -225,12 +218,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     });
 
     // Update support count
-    const updateResult = await this.db.query(
-      `UPDATE wishes SET support_count = (
-        SELECT COUNT(*) FROM supports WHERE wish_id = $1
-      ) WHERE id = $1`,
-      [wishId.value]
-    );
+    const updateResult = await this.queryExecutor.updateSupportCount(wishId.value);
 
     Logger.debug('[REPO] Support count updated after removal', { 
       wishId: wishId.value,
@@ -239,32 +227,34 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
   }
 
   async hasSupported(wishId: WishId, sessionId?: SessionId, userId?: UserId): Promise<boolean> {
-    let query: string;
-    let params: any[];
+    let result;
 
     if (userId) {
       // Check by user ID (for logged-in users)
-      query = `
-        SELECT 1 FROM supports 
-        WHERE wish_id = $1 AND user_id = $2
-        LIMIT 1
-      `;
-      params = [wishId.value, userId.value];
+      result = await this.queryExecutor.select('supports', {
+        columns: ['1'],
+        where: {
+          wish_id: wishId.value,
+          user_id: userId.value
+        },
+        limit: 1
+      });
     } else if (sessionId) {
       // Check by session ID (for anonymous users)
-      query = `
-        SELECT 1 FROM supports 
-        WHERE wish_id = $1 AND session_id = $2
-        LIMIT 1
-      `;
-      params = [wishId.value, sessionId.value];
+      result = await this.queryExecutor.select('supports', {
+        columns: ['1'],
+        where: {
+          wish_id: wishId.value,
+          session_id: sessionId.value
+        },
+        limit: 1
+      });
     } else {
       // No identifier provided
       Logger.warn('[REPO] hasSupported called without userId or sessionId', { wishId: wishId.value });
       return false;
     }
     
-    const result = await this.db.query(query, params);
     const hasSupported = result.rows.length > 0;
     
     Logger.debug('[REPO] Checked support status', {
@@ -287,10 +277,11 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       authorId = UserId.fromNumber(row.user_id);
     } else {
       // Get actual session ID from sessions table
-      const sessionResult = await this.db.query(
-        'SELECT session_id FROM sessions WHERE wish_id = $1 LIMIT 1',
-        [row.id]
-      );
+      const sessionResult = await this.queryExecutor.select('sessions', {
+        columns: ['session_id'],
+        where: { wish_id: row.id },
+        limit: 1
+      });
       const sessionId = sessionResult.rows.length > 0 
         ? sessionResult.rows[0].session_id 
         : `session_${row.id}`;
@@ -298,10 +289,10 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     }
 
     // Get supporters list
-    const supportersResult = await this.db.query(
-      'SELECT session_id, user_id FROM supports WHERE wish_id = $1',
-      [row.id]
-    );
+    const supportersResult = await this.queryExecutor.select('supports', {
+      columns: ['session_id', 'user_id'],
+      where: { wish_id: row.id }
+    });
     
     const supporters = new Set<string>();
     supportersResult.rows.forEach((support: any) => {
