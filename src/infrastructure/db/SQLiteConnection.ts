@@ -5,10 +5,10 @@ import Database from "better-sqlite3";
 export class SQLiteConnection implements DatabaseConnection {
   private db: Database.Database;
 
-  constructor() {
-    const dbPath = process.env.SQLITE_DB_PATH || './wishlist.db';
-    Logger.info(`Connecting to SQLite database: ${dbPath}`);
-    this.db = new Database(dbPath);
+  constructor(dbPath?: string) {
+    const finalDbPath = dbPath || process.env.SQLITE_DB_PATH || './wishlist.db';
+    Logger.info(`Connecting to SQLite database: ${finalDbPath}`);
+    this.db = new Database(finalDbPath);
   }
 
   async query(text: string, params: any[]): Promise<DatabaseResult> {
@@ -18,15 +18,18 @@ export class SQLiteConnection implements DatabaseConnection {
     try {
       // better-sqlite3 is synchronous, so we wrap it in async
       let result: any;
+      let changes = 0;
       
       if (text.trim().toUpperCase().startsWith('SELECT')) {
         // For SELECT queries, use prepare().all()
         const stmt = this.db.prepare(text);
         result = stmt.all(params);
+        changes = result?.length || 0;
       } else {
         // For INSERT/UPDATE/DELETE, use prepare().run()
         const stmt = this.db.prepare(text);
         const info = stmt.run(params);
+        changes = info.changes;
         
         // For non-SELECT queries, check if we need to return inserted data
         if (text.toUpperCase().includes('RETURNING')) {
@@ -38,10 +41,11 @@ export class SQLiteConnection implements DatabaseConnection {
         }
       }
       
-      Logger.debug(`[SQLite] Query result: ${result?.length || 0} rows`);
+      Logger.debug(`[SQLite] Query result: ${result?.length || 0} rows, ${changes} changes`);
+      
       return {
         rows: result || [],
-        rowCount: result?.length || 0
+        rowCount: changes
       };
     } catch (err: any) {
       Logger.error(`[SQLite] Query error: ${err.message}`);

@@ -59,7 +59,7 @@ describe("SQLiteConnection", () => {
         "INSERT INTO test_table (name) VALUES (?)",
         ["Test Name"]
       );
-      expect(insertResult.rowCount).toBe(0); // INSERT doesn't return rows
+      expect(insertResult.rowCount).toBe(1); // INSERT affected 1 row
 
       // Select data
       const selectResult = await connection.query(
