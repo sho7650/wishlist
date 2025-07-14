@@ -483,7 +483,44 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // --- 流れ星アニメーション関数 ---
+  function createShootingStar() {
+    const star = document.createElement('div');
+    star.className = 'shooting-star';
+    
+    // ランダムな開始位置（画面の右上付近）
+    const startX = window.innerWidth * 0.7 + Math.random() * window.innerWidth * 0.3;
+    const startY = Math.random() * window.innerHeight * 0.3;
+    
+    star.style.left = startX + 'px';
+    star.style.top = startY + 'px';
+    
+    document.body.appendChild(star);
+    
+    // アニメーション開始
+    setTimeout(() => {
+      star.classList.add('animate');
+    }, 100);
+    
+    // アニメーション終了後に要素を削除
+    setTimeout(() => {
+      if (star.parentNode) {
+        star.parentNode.removeChild(star);
+      }
+    }, 2100);
+  }
+  
+  // 流れ星を定期的に生成（3-8秒間隔）
+  function scheduleNextShootingStar() {
+    const delay = Math.random() * 5000 + 3000; // 3-8秒
+    setTimeout(() => {
+      createShootingStar();
+      scheduleNextShootingStar();
+    }, delay);
+  }
+
   // --- アプリケーションの初期化 ---
   loadWishes(0, false);
   checkAuthState();
+  scheduleNextShootingStar();
 });
