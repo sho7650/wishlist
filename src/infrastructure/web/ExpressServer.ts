@@ -6,20 +6,29 @@ import helmet from "helmet";
 import { WishController } from "../../adapters/primary/WishController";
 import { WebServer } from "./WebServer";
 import session from "express-session";
-// import passport from "passport";
-import {
-  configureExpressPassport,
-  passport,
-} from "../../config/express-passport";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { ExpressAuthenticationAdapter } from "../../adapters/primary/ExpressAuthenticationAdapter";
+import { configureExpressPassport } from "../../config/express-passport";
 
 export class ExpressServer implements WebServer {
   private app = express();
 
-  constructor(dbConnection: any, private wishController: WishController) {
+  constructor(
+    dbConnection: any, 
+    private wishController: WishController,
+    private authenticationAdapter?: ExpressAuthenticationAdapter
+  ) {
     this.setupMiddleware();
     this.setupRoutes();
 
-    configureExpressPassport(dbConnection); // Passportの設定を追加
+    // Configure Passport with authentication adapter if available
+    if (this.authenticationAdapter) {
+      this.configurePassportWithAdapter();
+    } else {
+      // Fall back to legacy configuration
+      configureExpressPassport(dbConnection);
+    }
   }
 
   private setupMiddleware(): void {
@@ -124,6 +133,36 @@ export class ExpressServer implements WebServer {
       }
       res.sendFile(path.join(__dirname, "../../../public/index.html"));
     });
+  }
+
+  /**
+   * Configure Passport with authentication adapter
+   */
+  private configurePassportWithAdapter(): void {
+    if (!this.authenticationAdapter) return;
+
+    // Configure Passport serialization using the adapter
+    passport.serializeUser((user: any, done) => {
+      this.authenticationAdapter!.serializeUser(user, done);
+    });
+
+    passport.deserializeUser((id: string, done) => {
+      this.authenticationAdapter!.deserializeUser(id, done);
+    });
+
+    // Configure Google Strategy using the adapter
+    passport.use(
+      new GoogleStrategy(
+        {
+          clientID: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
+        },
+        (accessToken, refreshToken, profile, done) => {
+          this.authenticationAdapter!.handleGoogleCallback(accessToken, refreshToken, profile, done);
+        }
+      )
+    );
   }
 
   public start(port: number): void {
