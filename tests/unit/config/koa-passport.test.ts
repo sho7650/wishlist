@@ -39,6 +39,7 @@ describe("Koa Passport Configuration", () => {
     delete process.env.GOOGLE_CLIENT_ID;
     delete process.env.GOOGLE_CLIENT_SECRET;
     delete process.env.GOOGLE_CALLBACK_URL;
+    delete process.env.DB_TYPE;
     if (mockConsoleLog) {
       mockConsoleLog.mockRestore();
     }
@@ -293,5 +294,93 @@ describe("Koa Passport Configuration", () => {
       }),
       expect.any(Function)
     );
+  });
+
+  describe("SQLite compatibility", () => {
+    beforeEach(() => {
+      process.env.DB_TYPE = "sqlite";
+    });
+
+    it("should use SQLite parameter syntax for existing user update", async () => {
+      const existingUser = { id: 123, google_id: "google123", display_name: "Existing User" };
+      const updatedUser = { id: 123, google_id: "google123", display_name: "Updated User" };
+      
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [existingUser] })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [updatedUser] });
+
+      configureKoaPassport(mockDb);
+      const { Strategy } = require("passport-google-oauth20");
+      const googleStrategyCallback = Strategy.mock.calls[0][1];
+      const mockProfile = {
+        id: "google123",
+        displayName: "Updated User",
+        emails: [{ value: "user@example.com" }],
+        photos: [{ value: "http://example.com/photo.jpg" }],
+      };
+      const mockDone = jest.fn();
+
+      await googleStrategyCallback("access-token", "refresh-token", mockProfile, mockDone);
+
+      expect(mockDb.query).toHaveBeenCalledWith(
+        "UPDATE users SET display_name = ?, picture = ? WHERE google_id = ?",
+        ["Updated User", "http://example.com/photo.jpg", "google123"]
+      );
+      expect(mockDb.query).toHaveBeenCalledWith(
+        "SELECT * FROM users WHERE google_id = ?",
+        ["google123"]
+      );
+      expect(mockDone).toHaveBeenCalledWith(null, updatedUser);
+    });
+
+    it("should use SQLite parameter syntax for new user creation", async () => {
+      const newUser = { id: 456, google_id: "google456", display_name: "New User" };
+      
+      mockDb.query
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [], rowCount: 1 })
+        .mockResolvedValueOnce({ rows: [newUser] });
+
+      configureKoaPassport(mockDb);
+      const { Strategy } = require("passport-google-oauth20");
+      const googleStrategyCallback = Strategy.mock.calls[0][1];
+      const mockProfile = {
+        id: "google456",
+        displayName: "New User",
+        emails: [{ value: "newuser@example.com" }],
+        photos: [{ value: "http://example.com/newphoto.jpg" }],
+      };
+      const mockDone = jest.fn();
+
+      await googleStrategyCallback("access-token", "refresh-token", mockProfile, mockDone);
+
+      expect(mockDb.query).toHaveBeenCalledWith(
+        "INSERT INTO users (google_id, display_name, email, picture) VALUES (?, ?, ?, ?)",
+        ["google456", "New User", "newuser@example.com", "http://example.com/newphoto.jpg"]
+      );
+      expect(mockDb.query).toHaveBeenCalledWith(
+        "SELECT * FROM users WHERE google_id = ?",
+        ["google456"]
+      );
+      expect(mockDone).toHaveBeenCalledWith(null, newUser);
+    });
+
+    it("should use SQLite parameter syntax for deserializeUser", async () => {
+      const user = { id: 123, google_id: "google123", display_name: "Test User" };
+      mockDb.query.mockResolvedValueOnce({ rows: [user] });
+
+      configureKoaPassport(mockDb);
+      const deserializeUserFn = (koaPassport.deserializeUser as jest.Mock).mock.calls[0][0];
+      const mockDone = jest.fn();
+
+      await deserializeUserFn(123, mockDone);
+
+      expect(mockDb.query).toHaveBeenCalledWith(
+        "SELECT * FROM users WHERE id = ?",
+        [123]
+      );
+      expect(mockDone).toHaveBeenCalledWith(null, user);
+    });
   });
 });
