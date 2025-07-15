@@ -275,7 +275,7 @@ describe("Express Passport Configuration", () => {
 
       await googleStrategyCallback("access-token", "refresh-token", mockProfile, mockDone);
 
-      expect(mockDone).toHaveBeenCalledWith(dbError, false);
+      expect(mockDone).toHaveBeenCalledWith(dbError);
     });
   });
 
