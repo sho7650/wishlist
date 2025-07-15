@@ -1,6 +1,7 @@
 import { DatabaseConnection, DatabaseResult } from "./DatabaseConnection";
 import { Logger } from "../../utils/Logger";
 import Database from "better-sqlite3";
+import { DatabaseSchemaBuilder } from "./DatabaseSchemaBuilder";
 
 export class SQLiteConnection implements DatabaseConnection {
   private db: Database.Database;
@@ -69,55 +70,11 @@ export class SQLiteConnection implements DatabaseConnection {
   async initializeDatabase(): Promise<void> {
     Logger.info("Initializing SQLite database tables...");
 
-    const createTablesQueries = [
-      `CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        google_id TEXT UNIQUE NOT NULL,
-        display_name TEXT NOT NULL,
-        email TEXT,
-        picture TEXT,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )`,
-      
-      `CREATE TABLE IF NOT EXISTS wishes (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        wish TEXT NOT NULL,
-        created_at TIMESTAMP NOT NULL,
-        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        support_count INTEGER NOT NULL DEFAULT 0
-      )`,
-      
-      `CREATE TABLE IF NOT EXISTS sessions (
-        session_id TEXT PRIMARY KEY,
-        wish_id TEXT NOT NULL REFERENCES wishes(id),
-        created_at TIMESTAMP NOT NULL
-      )`,
-
-      `CREATE TABLE IF NOT EXISTS supports (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        wish_id TEXT NOT NULL REFERENCES wishes(id) ON DELETE CASCADE,
-        session_id TEXT,
-        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )`,
-
-      // SQLite indexes
-      `CREATE INDEX IF NOT EXISTS idx_wishes_created_at ON wishes(created_at DESC)`,
-      `CREATE INDEX IF NOT EXISTS idx_wishes_user_id ON wishes(user_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_supports_wish_id ON supports(wish_id)`,
-      
-      // SQLite unique constraints
-      `CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_session 
-       ON supports(wish_id, session_id) WHERE session_id IS NOT NULL`,
-      
-      `CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_user 
-       ON supports(wish_id, user_id) WHERE user_id IS NOT NULL`
-    ];
-
-    for (const query of createTablesQueries) {
-      await this.query(query, []);
-    }
+    // Use DatabaseSchemaBuilder for consistent schema management
+    const schemaQuery = DatabaseSchemaBuilder.buildSchema('sqlite');
+    
+    // Execute the unified schema
+    this.db.exec(schemaQuery);
     
     Logger.info("SQLite database initialized successfully");
   }

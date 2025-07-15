@@ -14,6 +14,7 @@ import koaPassport from "koa-passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { KoaAuthenticationAdapter } from "../../adapters/primary/KoaAuthenticationAdapter";
 import { configureKoaPassport } from "../../config/koa-passport";
+import { Logger } from "../../utils/Logger";
 
 export class KoaServer implements WebServer {
   private app: Koa;
@@ -171,7 +172,7 @@ export class KoaServer implements WebServer {
 
   public start(port: number): void {
     this.app.listen(port, () => {
-      console.log(`Koa server running on port ${port}`);
+      Logger.info(`[KOA] Server running on port ${port}`);
     });
   }
 }

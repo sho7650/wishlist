@@ -6,6 +6,7 @@ import { SessionId } from "../../domain/value-objects/SessionId";
 import { WishRepository } from "../../ports/output/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
 import { EventPublisher } from "../../ports/output/EventPublisher";
+import { Logger } from "../../utils/Logger";
 
 export class WishService {
   constructor(
@@ -47,7 +48,7 @@ export class WishService {
     wish.clearDomainEvents();
 
     const newSessionId = sessionId || this.sessionService.generateSessionId();
-    console.log('[WISH_SERVICE] Linking session to wish:', { newSessionId, wishId: wish.id });
+    Logger.debug('[WISH_SERVICE] Linking session to wish', { newSessionId, wishId: wish.id });
     await this.sessionService.linkSessionToWish(newSessionId, wish.id);
 
     return { wish, sessionId: newSessionId };
