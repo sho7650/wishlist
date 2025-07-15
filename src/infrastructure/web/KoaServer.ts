@@ -54,7 +54,7 @@ export class KoaServer implements WebServer {
           styleSrc: ["'self'", "fonts.googleapis.com", "'unsafe-inline'"],
           // ★★★ 画像のソース ★★★
           // 自分自身、data:スキーム、そしてGoogleの画像ドメインを許可
-          imgSrc: ["'self'", "data:", "lh3.googleusercontent.com"],
+          imgSrc: ["'self'", "data:", "https://lh3.googleusercontent.com", "https://lh4.googleusercontent.com", "https://lh5.googleusercontent.com", "https://lh6.googleusercontent.com", "https://lh1.googleusercontent.com", "https://lh2.googleusercontent.com"],
           // 接続元
           connectSrc: ["'self'"],
           // フォントのソース

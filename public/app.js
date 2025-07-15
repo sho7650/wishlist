@@ -88,6 +88,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // const user = await response.json();
         // console.log("User data received:", user); // ★このログを確認
         // console.log("userAvatar element:", userAvatar);
+        // console.log("user.picture:", user.picture);
 
         // ログイン済み
         loginButton.classList.add("hidden");

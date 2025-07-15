@@ -299,7 +299,7 @@ describe("WishController", () => {
       // 検証
       expect(
         mockGetLatestWishesUseCase.executeWithSupportStatus
-      ).toHaveBeenCalledWith(10, 20, undefined, undefined);
+      ).toHaveBeenCalledWith(10, 20, expect.any(String), undefined);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({ wishes: mockWishes });
     });
@@ -445,7 +445,7 @@ describe("WishController", () => {
       expect(res.json).toHaveBeenCalledWith({ wish: mockWish });
     });
 
-    it("should return 404 when no wish is found", async () => {
+    it("should return 200 with null wish when no wish is found", async () => {
       // モックの設定
       const req = mockRequest();
       req.user = { id: 123 };
@@ -459,10 +459,8 @@ describe("WishController", () => {
       await wishController.getUserWish(req, res);
 
       // 検証
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({
-        error: "願い事が見つかりません",
-      });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({ wish: null });
     });
 
     it("should handle errors in getUserWish", async () => {

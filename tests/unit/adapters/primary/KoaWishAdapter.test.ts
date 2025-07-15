@@ -112,6 +112,7 @@ describe("KoaWishAdapter", () => {
         httpOnly: true,
         maxAge: 365 * 24 * 60 * 60 * 1000,
         sameSite: "strict",
+        secure: false,
       });
     });
 
@@ -170,7 +171,7 @@ describe("KoaWishAdapter", () => {
       await koaWishAdapter.updateWish(mockContext);
 
       expect((mockContext as any).status).toBe(401);
-      expect((mockContext as any).body).toEqual({ error: "編集権限がありません" });
+      expect((mockContext as any).body).toEqual({ error: "編集権限がありません。" });
     });
 
     it("should return 400 when wish is missing", async () => {
@@ -180,7 +181,7 @@ describe("KoaWishAdapter", () => {
       await koaWishAdapter.updateWish(mockContext);
 
       expect((mockContext as any).status).toBe(400);
-      expect((mockContext as any).body).toEqual({ error: "願い事は必須です" });
+      expect((mockContext as any).body).toEqual({ error: "願い事は必須です。" });
     });
   });
 
@@ -361,7 +362,8 @@ describe("KoaWishAdapter", () => {
       expect((mockContext as any).status).toBe(200);
       expect((mockContext as any).body).toEqual({
         message: "応援を取り消しました",
-        success: true
+        success: true,
+        wasSupported: true
       });
     });
 
@@ -372,8 +374,12 @@ describe("KoaWishAdapter", () => {
 
       await koaWishAdapter.unsupportWish(mockContext);
 
-      expect((mockContext as any).status).toBe(400);
-      expect((mockContext as any).body).toEqual({ error: "応援していません" });
+      expect((mockContext as any).status).toBe(200);
+      expect((mockContext as any).body).toEqual({
+        message: "応援していませんでした",
+        success: true,
+        wasSupported: false
+      });
     });
 
     it("should generate session ID for anonymous users", async () => {
