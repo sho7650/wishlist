@@ -10,6 +10,7 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { ExpressAuthenticationAdapter } from "../../adapters/primary/ExpressAuthenticationAdapter";
 import { configureExpressPassport } from "../../config/express-passport";
+import { Logger } from "../../utils/Logger";
 
 export class ExpressServer implements WebServer {
   private app = express();
@@ -182,7 +183,7 @@ export class ExpressServer implements WebServer {
 
   public start(port: number): void {
     this.app.listen(port, () => {
-      console.log(`Express server running on port ${port}`);
+      Logger.info(`[EXPRESS] Server running on port ${port}`);
     });
   }
 }

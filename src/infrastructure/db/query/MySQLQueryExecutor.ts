@@ -1,89 +1,22 @@
 import { DatabaseConnection, DatabaseResult } from "../DatabaseConnection";
-import { QueryExecutor, SelectOptions, JoinQueryConfig } from "./QueryExecutor";
-import { Logger } from "../../../utils/Logger";
+import { BaseQueryExecutor } from "./BaseQueryExecutor";
+import { MySQLPlaceholderStrategy } from "./QueryPlaceholderStrategy";
 
-export class MySQLQueryExecutor implements QueryExecutor {
-  constructor(private connection: DatabaseConnection) {}
-
-  async insert(table: string, data: Record<string, any>): Promise<DatabaseResult> {
-    const columns = Object.keys(data);
-    const values = Object.values(data);
-    const placeholders = values.map(() => '?');
-
-    const query = `
-      INSERT INTO ${table} (${columns.join(', ')})
-      VALUES (${placeholders.join(', ')})
-    `;
-
-    return this.connection.query(query, values);
+/**
+ * MySQL-specific QueryExecutor implementation
+ * 
+ * This class now extends BaseQueryExecutor, eliminating ~90% of duplicate code.
+ * Only MySQL-specific features like UPSERT and support count updates are implemented here.
+ */
+export class MySQLQueryExecutor extends BaseQueryExecutor {
+  constructor(connection: DatabaseConnection) {
+    super(connection, new MySQLPlaceholderStrategy());
   }
 
-  async select(table: string, options: SelectOptions = {}): Promise<DatabaseResult> {
-    const columns = options.columns ? options.columns.join(', ') : '*';
-    let query = `SELECT ${columns} FROM ${table}`;
-    const params: any[] = [];
-
-    // WHERE clause
-    if (options.where) {
-      const whereConditions = Object.entries(options.where).map(([key, value]) => {
-        params.push(value);
-        return `${key} = ?`;
-      });
-      query += ` WHERE ${whereConditions.join(' AND ')}`;
-    }
-
-    // ORDER BY clause
-    if (options.orderBy && options.orderBy.length > 0) {
-      const orderClauses = options.orderBy.map(order => 
-        `${order.column} ${order.direction}`
-      );
-      query += ` ORDER BY ${orderClauses.join(', ')}`;
-    }
-
-    // LIMIT clause
-    if (options.limit !== undefined) {
-      query += ` LIMIT ?`;
-      params.push(options.limit);
-    }
-
-    // OFFSET clause
-    if (options.offset !== undefined) {
-      query += ` OFFSET ?`;
-      params.push(options.offset);
-    }
-
-    return this.connection.query(query, params);
-  }
-
-  async update(table: string, data: Record<string, any>, conditions: Record<string, any>): Promise<DatabaseResult> {
-    const updateColumns = Object.keys(data);
-    const updateValues = Object.values(data);
-    const conditionColumns = Object.keys(conditions);
-    const conditionValues = Object.values(conditions);
-
-    const updateClauses = updateColumns.map(col => `${col} = ?`);
-    const whereClauses = conditionColumns.map(col => `${col} = ?`);
-
-    const query = `
-      UPDATE ${table}
-      SET ${updateClauses.join(', ')}
-      WHERE ${whereClauses.join(' AND ')}
-    `;
-
-    const params = [...updateValues, ...conditionValues];
-    return this.connection.query(query, params);
-  }
-
-  async delete(table: string, conditions: Record<string, any>): Promise<DatabaseResult> {
-    const conditionColumns = Object.keys(conditions);
-    const conditionValues = Object.values(conditions);
-
-    const whereClauses = conditionColumns.map(col => `${col} = ?`);
-    const query = `DELETE FROM ${table} WHERE ${whereClauses.join(' AND ')}`;
-
-    return this.connection.query(query, conditionValues);
-  }
-
+  /**
+   * MySQL-specific UPSERT using ON DUPLICATE KEY UPDATE syntax
+   * MySQL uses VALUES() function to reference new values
+   */
   async upsert(table: string, data: Record<string, any>, conflictColumns: string[]): Promise<DatabaseResult> {
     const columns = Object.keys(data);
     const values = Object.values(data);
@@ -94,7 +27,7 @@ export class MySQLQueryExecutor implements QueryExecutor {
     const excludeFromUpdate = [...conflictColumns, 'created_at'];
     const updateClauses = columns
       .filter(col => !excludeFromUpdate.includes(col))
-      .map(col => `${col} = VALUES(${col})`);
+      .map(col => `${col} = VALUES(${col})`); // MySQL uses VALUES() function
 
     const duplicateKeyClause = updateClauses.length > 0 
       ? `ON DUPLICATE KEY UPDATE ${updateClauses.join(', ')}`
@@ -109,79 +42,18 @@ export class MySQLQueryExecutor implements QueryExecutor {
     return this.connection.query(query, values);
   }
 
-  async selectWithJoin(config: JoinQueryConfig): Promise<DatabaseResult> {
-    let query = `SELECT ${config.select.join(', ')} FROM ${config.mainTable}`;
-    const params: any[] = [];
-
-    // JOIN clauses
-    for (const join of config.joins) {
-      query += ` ${join.type} JOIN ${join.table} ON ${join.on}`;
-    }
-
-    // WHERE clause
-    if (config.where) {
-      const whereConditions = Object.entries(config.where).map(([key, value]) => {
-        params.push(value);
-        return `${key} = ?`;
-      });
-      query += ` WHERE ${whereConditions.join(' AND ')}`;
-    }
-
-    // GROUP BY clause
-    if (config.groupBy && config.groupBy.length > 0) {
-      query += ` GROUP BY ${config.groupBy.join(', ')}`;
-    }
-
-    // HAVING clause
-    if (config.having) {
-      const havingConditions = Object.entries(config.having).map(([key, value]) => {
-        params.push(value);
-        return `${key} = ?`;
-      });
-      query += ` HAVING ${havingConditions.join(' AND ')}`;
-    }
-
-    // ORDER BY clause
-    if (config.orderBy && config.orderBy.length > 0) {
-      const orderClauses = config.orderBy.map(order => 
-        `${order.column} ${order.direction}`
-      );
-      query += ` ORDER BY ${orderClauses.join(', ')}`;
-    }
-
-    // LIMIT clause
-    if (config.limit !== undefined) {
-      query += ` LIMIT ?`;
-      params.push(config.limit);
-    }
-
-    // OFFSET clause
-    if (config.offset !== undefined) {
-      query += ` OFFSET ?`;
-      params.push(config.offset);
-    }
-
-    return this.connection.query(query, params);
-  }
-
-  async incrementSupportCount(wishId: string): Promise<DatabaseResult> {
-    const query = `
-      UPDATE wishes 
-      SET support_count = support_count + 1 
-      WHERE id = ?
-    `;
-    return this.connection.query(query, [wishId]);
-  }
-
+  /**
+   * MySQL-specific decrement support count using GREATEST function
+   */
   async decrementSupportCount(wishId: string): Promise<DatabaseResult> {
-    const query = `
-      UPDATE wishes 
-      SET support_count = GREATEST(support_count - 1, 0) 
-      WHERE id = ?
-    `;
+    const query = `UPDATE wishes SET support_count = GREATEST(support_count - 1, 0) WHERE id = ?`;
     return this.connection.query(query, [wishId]);
   }
 
+  /**
+   * MySQL-specific atomic support count update
+   * MySQL requires the parameter twice for the subquery and WHERE clause
+   */
   async updateSupportCount(wishId: string): Promise<DatabaseResult> {
     const query = `
       UPDATE wishes 
@@ -191,14 +63,5 @@ export class MySQLQueryExecutor implements QueryExecutor {
       WHERE id = ?
     `;
     return this.connection.query(query, [wishId, wishId]);
-  }
-
-  async raw(query: string, params: any[]): Promise<DatabaseResult> {
-    try {
-      return this.connection.query(query, params);
-    } catch (error) {
-      Logger.error('Raw query execution failed', error as Error);
-      throw error;
-    }
   }
 }

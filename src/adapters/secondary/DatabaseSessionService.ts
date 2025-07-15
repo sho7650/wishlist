@@ -1,5 +1,6 @@
 import { SessionService } from '../../ports/output/SessionService';
 import { DatabaseConnection } from '../../infrastructure/db/DatabaseConnection';
+import { Logger } from '../../utils/Logger';
 import crypto from 'crypto';
 
 export class DatabaseSessionService implements SessionService {
@@ -19,7 +20,7 @@ export class DatabaseSessionService implements SessionService {
     // 日付オブジェクトの代わりにISO文字列を使用
     const currentDate = new Date().toISOString();
     
-    console.log('[SESSION_SERVICE] linkSessionToWish parameters:', { sessionId, wishId, currentDate });
+    Logger.debug('[SESSION_SERVICE] linkSessionToWish parameters', { sessionId, wishId, currentDate });
     
     await this.db.query(
       `INSERT INTO sessions (session_id, wish_id, created_at) VALUES (${param1}, ${param2}, ${param3})`,
