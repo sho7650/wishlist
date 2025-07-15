@@ -1,4 +1,5 @@
 import { configureKoaPassport, koaPassport } from "../../../src/config/koa-passport";
+import { Logger } from "../../../src/utils/Logger";
 
 // koa-passportのモック
 jest.mock("koa-passport", () => ({
@@ -12,8 +13,8 @@ jest.mock("passport-google-oauth20", () => ({
   Strategy: jest.fn(),
 }));
 
-// console.logをモック
-let mockConsoleLog: jest.SpyInstance;
+// Logger.debugをモック
+let mockLoggerDebug: jest.SpyInstance;
 
 describe("Koa Passport Configuration", () => {
   let mockDb: any;
@@ -22,7 +23,7 @@ describe("Koa Passport Configuration", () => {
     jest.clearAllMocks();
     
     // console.logをモック
-    mockConsoleLog = jest.spyOn(console, 'log').mockImplementation(() => {});
+    mockLoggerDebug = jest.spyOn(Logger, 'debug').mockImplementation(() => {});
     
     // データベース接続のモック
     mockDb = {
@@ -40,8 +41,8 @@ describe("Koa Passport Configuration", () => {
     delete process.env.GOOGLE_CLIENT_SECRET;
     delete process.env.GOOGLE_CALLBACK_URL;
     delete process.env.DB_TYPE;
-    if (mockConsoleLog) {
-      mockConsoleLog.mockRestore();
+    if (mockLoggerDebug) {
+      mockLoggerDebug.mockRestore();
     }
   });
 
@@ -151,9 +152,13 @@ describe("Koa Passport Configuration", () => {
 
       await googleStrategyCallback("access-token", "refresh-token", mockProfile, mockDone);
 
-      expect(mockConsoleLog).toHaveBeenCalledWith("--- Google Strategy Callback ---");
-      expect(mockConsoleLog).toHaveBeenCalledWith("Profile received:", mockProfile);
-      expect(mockConsoleLog).toHaveBeenCalledWith("User already exists:", existingUser);
+      expect(mockLoggerDebug).toHaveBeenCalledWith("[AUTH] Google OAuth callback initiated");
+      expect(mockLoggerDebug).toHaveBeenCalledWith("[AUTH] OAuth profile received", {
+        id: mockProfile.id,
+        displayName: mockProfile.displayName,
+        profileType: typeof mockProfile
+      });
+      expect(mockLoggerDebug).toHaveBeenCalledWith("[AUTH] Existing user found", { userId: existingUser.id });
       
       expect(mockDb.query).toHaveBeenCalledWith(
         "SELECT * FROM users WHERE google_id = $1",
@@ -276,9 +281,12 @@ describe("Koa Passport Configuration", () => {
 
       await googleStrategyCallback("access-token", "refresh-token", mockProfile, mockDone);
 
-      expect(mockConsoleLog).toHaveBeenCalledWith("--- Google Strategy Callback ---");
-      expect(mockConsoleLog).toHaveBeenCalledWith("Profile received:", mockProfile);
-      expect(mockConsoleLog).toHaveBeenCalledWith("Type of profile object:", "object");
+      expect(mockLoggerDebug).toHaveBeenCalledWith("[AUTH] Google OAuth callback initiated");
+      expect(mockLoggerDebug).toHaveBeenCalledWith("[AUTH] OAuth profile received", {
+        id: mockProfile.id,
+        displayName: mockProfile.displayName,
+        profileType: typeof mockProfile
+      });
     });
   });
 

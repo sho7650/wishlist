@@ -3,6 +3,7 @@ import { PassportStatic } from "passport";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { DatabaseConnection } from "../infrastructure/db/DatabaseConnection";
+import { Logger } from "../utils/Logger";
 
 // ユーザー情報の型定義
 interface User {
@@ -58,6 +59,12 @@ export function configureExpressPassport(db: DatabaseConnection) {
         callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
       },
       async (accessToken, refreshToken, profile, done) => {
+        Logger.debug("[AUTH] Google OAuth callback initiated");
+        Logger.debug("[AUTH] OAuth profile received", {
+          id: profile.id,
+          displayName: profile.displayName,
+          profileType: typeof profile
+        });
         try {
           const pictureUrl =
             profile.photos && profile.photos.length > 0
@@ -71,6 +78,7 @@ export function configureExpressPassport(db: DatabaseConnection) {
 
           if (currentUserResult.rows.length > 0) {
             // 2. ユーザーが存在する場合
+            Logger.debug("[AUTH] Existing user found", { userId: currentUserResult.rows[0].id });
             const existingUser = currentUserResult.rows[0];
             if (isSQLite) {
               // SQLite doesn't support RETURNING, so update and then select

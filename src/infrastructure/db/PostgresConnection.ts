@@ -2,6 +2,7 @@ import { Pool, PoolClient, QueryResult } from "pg";
 import { DatabaseConnection, DatabaseResult } from "./DatabaseConnection";
 import { parse as parseDbUrl } from "pg-connection-string";
 import { Logger } from "../../utils/Logger";
+import { DatabaseSchemaBuilder } from "./DatabaseSchemaBuilder";
 
 export class PostgresConnection implements DatabaseConnection {
   private pool: Pool;
@@ -56,59 +57,9 @@ export class PostgresConnection implements DatabaseConnection {
     }
   }
   async initializeDatabase(): Promise<void> {
-    // テーブル作成クエリ
-    const createTablesQuery = `
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        google_id TEXT UNIQUE NOT NULL,
-        display_name TEXT NOT NULL,
-        email TEXT,
-        picture TEXT,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS wishes (
-        id UUID PRIMARY KEY,
-        name TEXT,
-        wish TEXT NOT NULL,
-        created_at TIMESTAMP NOT NULL,
-        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        support_count INTEGER NOT NULL DEFAULT 0
-      );
-      
-      CREATE TABLE IF NOT EXISTS sessions (
-        session_id TEXT PRIMARY KEY,
-        wish_id UUID NOT NULL REFERENCES wishes(id),
-        created_at TIMESTAMP NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS supports (
-        id SERIAL PRIMARY KEY,
-        wish_id UUID NOT NULL REFERENCES wishes(id) ON DELETE CASCADE,
-        session_id TEXT,
-        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-
-      -- パフォーマンス最適化のためのインデックス
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_session 
-      ON supports(wish_id, session_id) WHERE session_id IS NOT NULL;
-      
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_supports_wish_user 
-      ON supports(wish_id, user_id) WHERE user_id IS NOT NULL;
-      
-      -- 高速クエリのための追加インデックス
-      CREATE INDEX IF NOT EXISTS idx_wishes_created_at 
-      ON wishes(created_at DESC);
-      
-      CREATE INDEX IF NOT EXISTS idx_wishes_user_id 
-      ON wishes(user_id) WHERE user_id IS NOT NULL;
-      
-      CREATE INDEX IF NOT EXISTS idx_supports_wish_id 
-      ON supports(wish_id);
-    `;
-
-    await this.query(createTablesQuery, []);
+    // Use DatabaseSchemaBuilder for consistent schema management
+    const schemaQuery = DatabaseSchemaBuilder.buildSchema('postgres');
+    await this.query(schemaQuery, []);
     Logger.info("PostgreSQL database initialized");
   }
 

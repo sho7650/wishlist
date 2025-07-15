@@ -2,6 +2,7 @@ import { ServerBuilderStrategy } from "./ServerBuilderStrategy";
 import { WebServer } from "./WebServer";
 import { KoaServer } from "./KoaServer";
 import { KoaWishAdapter } from "../../adapters/primary/KoaWishAdapter";
+import { Logger } from "../../utils/Logger";
 import {
   CreateWishUseCase,
   UpdateWishUseCase,
@@ -30,7 +31,7 @@ export class KoaServerBuilder implements ServerBuilderStrategy {
     sessionService: SessionService,
     queryExecutor?: QueryExecutor
   ): WebServer {
-    console.log("Building Koa server with strategy...");
+    Logger.debug("[WEB] Building Koa server with strategy");
 
     // Create dependencies for WishService
     const eventPublisher: EventPublisher = new MockEventPublisher();

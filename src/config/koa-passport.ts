@@ -3,6 +3,7 @@
 import koaPassport from "koa-passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { DatabaseConnection } from "../infrastructure/db/DatabaseConnection";
+import { Logger } from "../utils/Logger";
 
 interface User {
   id: number;
@@ -43,9 +44,12 @@ export function configureKoaPassport(db: DatabaseConnection) {
         callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
       },
       async (accessToken, refreshToken, profile, done) => {
-        console.log("--- Google Strategy Callback ---");
-        console.log("Profile received:", profile);
-        console.log("Type of profile object:", typeof profile);
+        Logger.debug("[AUTH] Google OAuth callback initiated");
+        Logger.debug("[AUTH] OAuth profile received", {
+          id: profile.id,
+          displayName: profile.displayName,
+          profileType: typeof profile
+        });
         try {
           const pictureUrl =
             profile.photos && profile.photos.length > 0
@@ -57,7 +61,7 @@ export function configureKoaPassport(db: DatabaseConnection) {
           );
 
           if (existingUserResult.rows.length > 0) {
-            console.log("User already exists:", existingUserResult.rows[0]);
+            Logger.debug("[AUTH] Existing user found", { userId: existingUserResult.rows[0].id });
             const existingUser = existingUserResult.rows[0];
             if (isSQLite) {
               // SQLite doesn't support RETURNING, so update and then select

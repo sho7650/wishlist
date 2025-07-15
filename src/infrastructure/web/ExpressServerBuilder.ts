@@ -2,6 +2,7 @@ import { ServerBuilderStrategy } from "./ServerBuilderStrategy";
 import { WebServer } from "./WebServer";
 import { ExpressServer } from "./ExpressServer";
 import { WishController } from "../../adapters/primary/ExpressWishController";
+import { Logger } from "../../utils/Logger";
 import {
   CreateWishUseCase,
   UpdateWishUseCase,
@@ -31,7 +32,7 @@ export class ExpressServerBuilder implements ServerBuilderStrategy {
     sessionService: SessionService,
     queryExecutor?: QueryExecutor
   ): WebServer {
-    console.log("Building Express server with strategy...");
+    Logger.debug("[WEB] Building Express server with strategy");
 
     // Create dependencies for WishService
     const eventPublisher: EventPublisher = new MockEventPublisher();
