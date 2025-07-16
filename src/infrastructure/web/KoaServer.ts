@@ -7,83 +7,96 @@ import serve from "koa-static";
 import helmet from "koa-helmet";
 import path from "path";
 import fs from "fs";
-import { WebServer } from "./WebServer";
 import { KoaWishAdapter } from "../../adapters/primary/KoaWishAdapter";
 import session from "koa-session";
 import koaPassport from "koa-passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { KoaAuthenticationAdapter } from "../../adapters/primary/KoaAuthenticationAdapter";
 import { configureKoaPassport } from "../../config/koa-passport";
-import { Logger } from "../../utils/Logger";
+import { BaseWebServer, RouteDefinition } from "./BaseWebServer";
+import { MiddlewareConfigurationFactory } from "./MiddlewareConfigurationFactory";
 
-export class KoaServer implements WebServer {
+export class KoaServer extends BaseWebServer {
   private app: Koa;
   private router: Router;
 
   constructor(
-    private dbConnection: any,
-    private koaWishAdapter: KoaWishAdapter,
-    private authenticationAdapter?: KoaAuthenticationAdapter
+    dbConnection: any,
+    koaWishAdapter: KoaWishAdapter,
+    authenticationAdapter?: KoaAuthenticationAdapter
   ) {
+    super(dbConnection, koaWishAdapter, authenticationAdapter);
+    
+    // Initialize Koa app and router after calling super
     this.app = new Koa();
     this.router = new Router();
-
-    this.app.keys = [process.env.SESSION_SECRET || "default_dev_secret"];
-
-    // Configure Passport with authentication adapter if available
-    if (this.authenticationAdapter) {
-      this.configurePassportWithAdapter();
-    } else {
-      // Fall back to legacy configuration
-      configureKoaPassport(this.dbConnection);
-    }
-
-    this.setupMiddleware();
-    this.setupRoutes();
+    this.app.keys = MiddlewareConfigurationFactory.createSessionKeys();
+    
+    // Then initialize the server using the Template Method
+    this.initializeServer();
   }
 
-  private setupMiddleware(): void {
-    this.app.use(
-      helmet.contentSecurityPolicy({
-        directives: {
-          // デフォルトのソースを 'self' に設定
-          defaultSrc: ["'self'"],
-          // スクリプトのソース：自分自身と、もしインラインスクリプトがあれば 'unsafe-inline'
-          scriptSrc: ["'self'"],
-          // スタイルのソース：自分自身と、Google Fonts、インラインスタイル
-          styleSrc: ["'self'", "fonts.googleapis.com", "'unsafe-inline'"],
-          // ★★★ 画像のソース ★★★
-          // 自分自身、data:スキーム、そしてGoogleの画像ドメインを許可
-          imgSrc: ["'self'", "data:", "lh3.googleusercontent.com"],
-          // 接続元
-          connectSrc: ["'self'"],
-          // フォントのソース
-          fontSrc: ["'self'", "fonts.gstatic.com"],
-          // オブジェクトのソース
-          objectSrc: ["'none'"],
-          // メディアのソース
-          mediaSrc: ["'self'"],
-          // フレームのソース
-          frameSrc: ["'none'"],
-          // CSP違反のレポート先(任意)
-          // reportUri: '/csp-violation-report-endpoint',
-        },
-      })
-    );
+  // Template Method Pattern implementations
+  protected getFrameworkName(): string {
+    return "KOA";
+  }
 
-    // Koaのセッション管理
+  protected getApp(): any {
+    return this.app;
+  }
+
+  protected setupFrameworkSpecificMiddleware(): void {
+    this.app.use(bodyParser());
+  }
+
+  protected applySecurityMiddleware(config: any): void {
+    this.app.use(helmet.contentSecurityPolicy(config));
+  }
+
+  protected applySessionMiddleware(config: any): void {
     this.app.use(session({}, this.app));
+  }
 
-    // koa-passport による認証
+  protected applyAuthenticationMiddleware(): void {
     this.app.use(koaPassport.initialize());
     this.app.use(koaPassport.session());
-
-    this.app.use(bodyParser());
-    this.app.use(serve(path.join(__dirname, "../../../public")));
   }
 
-  private setupRoutes(): void {
-    const ensureAuth: Koa.Middleware = async (ctx, next) => {
+  protected addRoute(route: RouteDefinition): void {
+    const middleware = [];
+    
+    // Add authentication middleware if required
+    if (route.requireAuth) {
+      middleware.push(this.createAuthMiddleware());
+    }
+    
+    // Add any custom middleware
+    if (route.middleware) {
+      middleware.push(...route.middleware);
+    }
+
+    // Add the handler
+    middleware.push(route.handler);
+
+    // Apply route to Koa router
+    switch (route.method) {
+      case 'GET':
+        this.router.get(route.path, ...middleware);
+        break;
+      case 'POST':
+        this.router.post(route.path, ...middleware);
+        break;
+      case 'PUT':
+        this.router.put(route.path, ...middleware);
+        break;
+      case 'DELETE':
+        this.router.delete(route.path, ...middleware);
+        break;
+    }
+  }
+
+  protected createAuthMiddleware(): Koa.Middleware {
+    return async (ctx, next) => {
       if (ctx.isAuthenticated()) {
         await next();
       } else {
@@ -91,59 +104,50 @@ export class KoaServer implements WebServer {
         ctx.body = { error: "Unauthorized" };
       }
     };
+  }
 
-    // 認証ルート
-    this.router.get(
-      "/auth/google",
-      koaPassport.authenticate("google", { scope: ["profile", "email"] })
-    );
+  protected configureStaticFiles(): void {
+    this.app.use(serve(this.getStaticFilesPath()));
+  }
 
-    this.router.get(
-      "/auth/google/callback",
-      koaPassport.authenticate("google", {
-        successRedirect: "/",
-        failureRedirect: "/",
-      })
-    );
-
-    this.router.get("/auth/logout", async (ctx) => {
-      ctx.logout();
-      ctx.redirect("/");
-    });
-
-    this.router.get("/api/user", (ctx) => {
-      ctx.body = ctx.state.user || null;
-    });
-
-    // 既存のルートに認証チェックを適用
-    this.router.post("/api/wishes", ensureAuth, this.koaWishAdapter.createWish);
-    this.router.put("/api/wishes", ensureAuth, this.koaWishAdapter.updateWish);
-    this.router.get("/api/wishes/current", this.koaWishAdapter.getCurrentWish);
-    this.router.get("/api/wishes", this.koaWishAdapter.getLatestWishes);
-    this.router.get("/api/user/wish", this.koaWishAdapter.getUserWish);
-    
-    // 応援機能のルート
-    this.router.post("/api/wishes/:wishId/support", this.koaWishAdapter.supportWish);
-    this.router.delete("/api/wishes/:wishId/support", this.koaWishAdapter.unsupportWish);
-    this.router.get("/api/wishes/:wishId/support", this.koaWishAdapter.getWishSupportStatus);
-
+  protected configureSPAFallback(): void {
+    // Apply router middleware first
     this.app.use(this.router.routes()).use(this.router.allowedMethods());
 
-    // SPAフォールバック
+    // Then add SPA fallback
     this.app.use(async (ctx) => {
       if (ctx.status === 404 && !ctx.path.startsWith("/api/")) {
         ctx.type = "html";
-        ctx.body = fs.createReadStream(
-          path.join(__dirname, "../../../public/index.html")
-        );
+        ctx.body = fs.createReadStream(this.getIndexHtmlPath());
       }
     });
   }
 
-  /**
-   * Configure Passport with authentication adapter
-   */
-  private configurePassportWithAdapter(): void {
+  // Authentication handler implementations
+  protected createGoogleAuthHandler(): any {
+    const config = MiddlewareConfigurationFactory.createGoogleOAuthScope();
+    return koaPassport.authenticate("google", { scope: config });
+  }
+
+  protected createGoogleCallbackHandler(): any {
+    const config = MiddlewareConfigurationFactory.createOAuthRedirectConfiguration();
+    return koaPassport.authenticate("google", config);
+  }
+
+  protected createLogoutHandler(): any {
+    return async (ctx: Koa.Context) => {
+      ctx.logout();
+      ctx.redirect("/");
+    };
+  }
+
+  protected createUserInfoHandler(): any {
+    return (ctx: Koa.Context) => {
+      ctx.body = ctx.state.user || null;
+    };
+  }
+
+  protected configurePassportWithAdapter(): void {
     if (!this.authenticationAdapter) return;
 
     // Configure Passport serialization using the adapter
@@ -156,23 +160,15 @@ export class KoaServer implements WebServer {
     });
 
     // Configure Google Strategy using the adapter
+    const oauthConfig = MiddlewareConfigurationFactory.createGoogleOAuthConfiguration();
     koaPassport.use(
-      new GoogleStrategy(
-        {
-          clientID: process.env.GOOGLE_CLIENT_ID!,
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-          callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
-        },
-        (accessToken, refreshToken, profile, done) => {
-          this.authenticationAdapter!.handleGoogleCallback(accessToken, refreshToken, profile, done);
-        }
-      )
+      new GoogleStrategy(oauthConfig, (accessToken, refreshToken, profile, done) => {
+        this.authenticationAdapter!.handleGoogleCallback(accessToken, refreshToken, profile, done);
+      })
     );
   }
 
-  public start(port: number): void {
-    this.app.listen(port, () => {
-      Logger.info(`[KOA] Server running on port ${port}`);
-    });
+  protected configureLegacyPassport(): void {
+    configureKoaPassport(this.dbConnection);
   }
 }

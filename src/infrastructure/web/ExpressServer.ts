@@ -4,151 +4,139 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import helmet from "helmet";
 import { WishController } from "../../adapters/primary/ExpressWishController";
-import { WebServer } from "./WebServer";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { ExpressAuthenticationAdapter } from "../../adapters/primary/ExpressAuthenticationAdapter";
 import { configureExpressPassport } from "../../config/express-passport";
-import { Logger } from "../../utils/Logger";
+import { BaseWebServer, RouteDefinition } from "./BaseWebServer";
+import { MiddlewareConfigurationFactory } from "./MiddlewareConfigurationFactory";
 
-export class ExpressServer implements WebServer {
-  private app = express();
+export class ExpressServer extends BaseWebServer {
+  private app: express.Application;
 
   constructor(
     dbConnection: any,
-    private wishController: WishController,
-    private authenticationAdapter?: ExpressAuthenticationAdapter
+    wishController: WishController,
+    authenticationAdapter?: ExpressAuthenticationAdapter
   ) {
-    this.setupMiddleware();
-    this.setupRoutes();
-
-    // Configure Passport with authentication adapter if available
-    if (this.authenticationAdapter) {
-      this.configurePassportWithAdapter();
-    } else {
-      // Fall back to legacy configuration
-      configureExpressPassport(dbConnection);
-    }
+    super(dbConnection, wishController, authenticationAdapter);
+    
+    // Initialize Express app first
+    this.app = express();
+    
+    // Then initialize the server using the Template Method
+    this.initializeServer();
   }
 
-  private setupMiddleware(): void {
-    // ★★★ セッションとPassportのミドルウェアを追加 ★★★
-    // 必ず helmet の後、かつルート設定の前に追加します
-    this.app.use(
-      session({
-        secret: process.env.SESSION_SECRET!,
-        resave: false,
-        saveUninitialized: false,
-        cookie: { maxAge: 24 * 60 * 60 * 1000 }, // 24時間
-      })
-    );
-    this.app.use(passport.initialize());
-    this.app.use(passport.session());
-    this.app.use(
-      helmet.contentSecurityPolicy({
-        directives: {
-          // デフォルトのソースを 'self' に設定
-          defaultSrc: ["'self'"],
-          // スクリプトのソース：自分自身と、もしインラインスクリプトがあれば 'unsafe-inline'
-          scriptSrc: ["'self'"],
-          // スタイルのソース：自分自身と、Google Fonts、インラインスタイル
-          styleSrc: ["'self'", "fonts.googleapis.com", "'unsafe-inline'"],
-          // ★★★ 画像のソース ★★★
-          // 自分自身、data:スキーム、そしてGoogleの画像ドメインを許可
-          imgSrc: ["'self'", "data:", "lh3.googleusercontent.com"],
-          // 接続元
-          connectSrc: ["'self'"],
-          // フォントのソース
-          fontSrc: ["'self'", "fonts.gstatic.com"],
-          // オブジェクトのソース
-          objectSrc: ["'none'"],
-          // メディアのソース
-          mediaSrc: ["'self'"],
-          // フレームのソース
-          frameSrc: ["'none'"],
-          // CSP違反のレポート先(任意)
-          // reportUri: '/csp-violation-report-endpoint',
-        },
-      })
-    );
+  // Template Method Pattern implementations
+  protected getFrameworkName(): string {
+    return "EXPRESS";
+  }
+
+  protected getApp(): any {
+    return this.app;
+  }
+
+  protected setupFrameworkSpecificMiddleware(): void {
     this.app.use(express.json());
-    this.app.use(express.static(path.join(__dirname, "../../../public")));
     this.app.use(cookieParser());
   }
 
-  private setupRoutes(): void {
-    // --- ★ 認証用のルートを新規追加 ★ ---
-    this.app.get(
-      "/auth/google",
-      passport.authenticate("google", {
-        scope: ["profile", "email"], // Googleから取得したい情報
-      })
-    );
+  protected applySecurityMiddleware(config: any): void {
+    this.app.use(helmet.contentSecurityPolicy(config));
+  }
 
-    this.app.get(
-      "/auth/google/callback",
-      passport.authenticate("google", {
-        successRedirect: "/", // 成功したらトップページへ
-        failureRedirect: "/", // 失敗してもトップページへ
-      })
-    );
+  protected applySessionMiddleware(config: any): void {
+    this.app.use(session(config));
+  }
 
-    this.app.get("/auth/logout", (req: any, res) => {
-      req.logout(() => {
-        // passport v0.6以上ではコールバックが必要
-        res.redirect("/");
-      });
-    });
+  protected applyAuthenticationMiddleware(): void {
+    this.app.use(passport.initialize());
+    this.app.use(passport.session());
+  }
 
-    // 現在のユーザー情報を返すAPI
-    this.app.get("/api/user", (req, res) => {
-      res.send(req.user); // req.user はpassportが自動で設定
-    });
+  protected addRoute(route: RouteDefinition): void {
+    const middleware = [];
+    
+    // Add authentication middleware if required
+    if (route.requireAuth) {
+      middleware.push(this.createAuthMiddleware());
+    }
+    
+    // Add any custom middleware
+    if (route.middleware) {
+      middleware.push(...route.middleware);
+    }
 
-    // --- ★ 既存のルートに認証チェックを追加 ★ ---
-    const ensureAuth = (req: any, res: any, next: any) => {
+    // Add the handler
+    middleware.push(route.handler);
+
+    // Apply route to Express app
+    switch (route.method) {
+      case 'GET':
+        this.app.get(route.path, ...middleware);
+        break;
+      case 'POST':
+        this.app.post(route.path, ...middleware);
+        break;
+      case 'PUT':
+        this.app.put(route.path, ...middleware);
+        break;
+      case 'DELETE':
+        this.app.delete(route.path, ...middleware);
+        break;
+    }
+  }
+
+  protected createAuthMiddleware(): any {
+    return (req: any, res: any, next: any) => {
       if (req.isAuthenticated()) {
         return next();
       }
       res.status(401).send("Unauthorized");
     };
+  }
 
-    // 投稿と更新は認証済みユーザーのみ可能にする
-    this.app.post("/api/wishes", ensureAuth, this.wishController.createWish);
-    this.app.put("/api/wishes", ensureAuth, this.wishController.updateWish);
-    // this.app.post("/api/wishes", this.wishController.createWish);
-    // this.app.put("/api/wishes", this.wishController.updateWish);
-    this.app.get("/api/wishes/current", this.wishController.getCurrentWish);
-    this.app.get("/api/wishes", this.wishController.getLatestWishes);
-    this.app.get("/api/user/wish", this.wishController.getUserWish);
+  protected configureStaticFiles(): void {
+    this.app.use(express.static(this.getStaticFilesPath()));
+  }
 
-    // 応援機能のルート
-    this.app.post(
-      "/api/wishes/:wishId/support",
-      this.wishController.supportWish
-    );
-    this.app.delete(
-      "/api/wishes/:wishId/support",
-      this.wishController.unsupportWish
-    );
-    this.app.get(
-      "/api/wishes/:wishId/support",
-      this.wishController.getWishSupportStatus
-    );
-
+  protected configureSPAFallback(): void {
     this.app.get(/.*/, (req, res, next) => {
       if (req.path.startsWith("/api/")) {
         return next();
       }
-      res.sendFile(path.join(__dirname, "../../../public/index.html"));
+      res.sendFile(this.getIndexHtmlPath());
     });
   }
 
-  /**
-   * Configure Passport with authentication adapter
-   */
-  private configurePassportWithAdapter(): void {
+  // Authentication handler implementations
+  protected createGoogleAuthHandler(): any {
+    const config = MiddlewareConfigurationFactory.createGoogleOAuthScope();
+    return passport.authenticate("google", { scope: config });
+  }
+
+  protected createGoogleCallbackHandler(): any {
+    const config = MiddlewareConfigurationFactory.createOAuthRedirectConfiguration();
+    return passport.authenticate("google", config);
+  }
+
+  protected createLogoutHandler(): any {
+    return (req: any, res: any) => {
+      req.logout(() => {
+        res.redirect("/");
+      });
+    };
+  }
+
+  protected createUserInfoHandler(): any {
+    return (req: any, res: any) => {
+      res.send(req.user);
+    };
+  }
+
+  protected configurePassportWithAdapter(): void {
     if (!this.authenticationAdapter) return;
 
     // Configure Passport serialization using the adapter
@@ -161,29 +149,20 @@ export class ExpressServer implements WebServer {
     });
 
     // Configure Google Strategy using the adapter
+    const oauthConfig = MiddlewareConfigurationFactory.createGoogleOAuthConfiguration();
     passport.use(
-      new GoogleStrategy(
-        {
-          clientID: process.env.GOOGLE_CLIENT_ID!,
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-          callbackURL:
-            process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback",
-        },
-        (accessToken, refreshToken, profile, done) => {
-          this.authenticationAdapter!.handleGoogleCallback(
-            accessToken,
-            refreshToken,
-            profile,
-            done
-          );
-        }
-      )
+      new GoogleStrategy(oauthConfig, (accessToken, refreshToken, profile, done) => {
+        this.authenticationAdapter!.handleGoogleCallback(
+          accessToken,
+          refreshToken,
+          profile,
+          done
+        );
+      })
     );
   }
 
-  public start(port: number): void {
-    this.app.listen(port, () => {
-      Logger.info(`[EXPRESS] Server running on port ${port}`);
-    });
+  protected configureLegacyPassport(): void {
+    configureExpressPassport(this.dbConnection);
   }
 }

@@ -263,7 +263,7 @@ describe("ExpressServer", () => {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
           styleSrc: ["'self'", "fonts.googleapis.com", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:", "lh3.googleusercontent.com"],
+          imgSrc: ["'self'", "data:", "https://lh3.googleusercontent.com", "https://lh4.googleusercontent.com", "https://lh5.googleusercontent.com", "https://lh6.googleusercontent.com", "https://lh1.googleusercontent.com", "https://lh2.googleusercontent.com"],
           connectSrc: ["'self'"],
           fontSrc: ["'self'", "fonts.gstatic.com"],
           objectSrc: ["'none'"],
