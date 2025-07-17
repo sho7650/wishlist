@@ -5,21 +5,25 @@ import { WebServer } from "./WebServer";
 import { Logger } from "../../utils/Logger";
 import { SecurityConfigurationFactory } from "./SecurityConfigurationFactory";
 import { MiddlewareConfigurationFactory } from "./MiddlewareConfigurationFactory";
+import { DatabaseConnection } from "../db/DatabaseConnection";
+
+export type RequestHandler = (req: any, res: any, next?: any) => void | Promise<void>;
+export type Middleware = (req: any, res: any, next: any) => void | Promise<void>;
 
 export interface RouteDefinition {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   path: string;
-  handler: any;
-  middleware?: any[];
+  handler: RequestHandler;
+  middleware?: Middleware[];
   requireAuth?: boolean;
 }
 
 export abstract class BaseWebServer implements WebServer {
-  protected dbConnection: any;
-  protected wishController: any;
-  protected authenticationAdapter?: any;
+  protected dbConnection: DatabaseConnection;
+  protected wishController: any; // TODO: Create specific WishController interface
+  protected authenticationAdapter?: any; // TODO: Create specific AuthenticationAdapter interface
 
-  constructor(dbConnection: any, wishController: any, authenticationAdapter?: any) {
+  constructor(dbConnection: DatabaseConnection, wishController: any, authenticationAdapter?: any) {
     this.dbConnection = dbConnection;
     this.wishController = wishController;
     this.authenticationAdapter = authenticationAdapter;

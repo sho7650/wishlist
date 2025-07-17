@@ -395,9 +395,9 @@ describe("MySQLConnection", () => {
       }
     });
 
-    it("should handle undefined parameters gracefully", async () => {
+    it("should handle null parameters gracefully", async () => {
       await expect(
-        connection.query("SELECT * FROM users WHERE id = ?", [undefined])
+        connection.query("SELECT * FROM users WHERE id = ?", [null])
       ).resolves.not.toThrow();
     });
 

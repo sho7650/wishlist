@@ -2,6 +2,7 @@ import { UserRepositoryPort, UserRepositoryError, UserRepositoryException } from
 import { User } from "../../domain/auth/User";
 import { UserId } from "../../domain/auth/UserId";
 import { QueryExecutor } from "../../infrastructure/db/query/QueryExecutor";
+import { DatabaseRow } from "../../infrastructure/db/DatabaseConnection";
 
 /**
  * Database implementation of UserRepositoryPort
@@ -146,7 +147,7 @@ export class DatabaseUserRepositoryAdapter implements UserRepositoryPort {
         [googleId]
       );
 
-      return (result.rows[0]?.count ?? 0) > 0;
+      return ((result.rows[0]?.count as number) ?? 0) > 0;
     } catch (error) {
       throw new UserRepositoryException(
         UserRepositoryError.DATABASE_ERROR,
@@ -163,7 +164,7 @@ export class DatabaseUserRepositoryAdapter implements UserRepositoryPort {
         []
       );
 
-      return result.rows[0]?.count ?? 0;
+      return (result.rows[0]?.count as number) ?? 0;
     } catch (error) {
       throw new UserRepositoryException(
         UserRepositoryError.DATABASE_ERROR,
@@ -176,13 +177,13 @@ export class DatabaseUserRepositoryAdapter implements UserRepositoryPort {
   /**
    * Map database row to User domain entity
    */
-  private mapRowToUser(row: any): User {
+  private mapRowToUser(row: DatabaseRow): User {
     return User.fromPlainObject({
-      id: row.id.toString(),
-      googleId: row.google_id,
-      displayName: row.display_name,
-      email: row.email || undefined,
-      picture: row.picture || undefined
+      id: (row.id as number).toString(),
+      googleId: row.google_id as string,
+      displayName: row.display_name as string,
+      email: (row.email as string) || undefined,
+      picture: (row.picture as string) || undefined
     });
   }
 

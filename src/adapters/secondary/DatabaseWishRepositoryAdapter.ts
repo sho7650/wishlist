@@ -7,8 +7,9 @@ import { SupportCount } from "../../domain/value-objects/SupportCount";
 import { WishRepository } from "../../ports/output/WishRepository";
 import { QueryExecutor } from "../../infrastructure/db/query/QueryExecutor";
 import { Logger } from "../../utils/Logger";
+import { DatabaseRow } from "../../infrastructure/db/DatabaseConnection";
 
-interface WishRow {
+interface WishRow extends DatabaseRow {
   id: string;
   name: string | null;
   wish: string;
@@ -65,8 +66,20 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       return null;
     }
 
-    const row = result.rows[0] as WishRow;
+    const row = this.mapDatabaseRowToWishRow(result.rows[0]);
     return await this.mapRowToWish(row);
+  }
+
+  private mapDatabaseRowToWishRow(row: DatabaseRow): WishRow {
+    return {
+      id: row.id as string,
+      name: row.name as string | null,
+      wish: row.wish as string,
+      created_at: row.created_at as string | Date,
+      user_id: row.user_id as number | null,
+      support_count: row.support_count as number,
+      is_supported: row.is_supported as boolean | undefined
+    };
   }
 
   async findByUserId(userId: UserId): Promise<Wish | null> {
@@ -76,7 +89,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       limit: 1
     });
     if (result.rows.length === 0) return null;
-    return await this.mapRowToWish(result.rows[0] as WishRow);
+    return await this.mapRowToWish(this.mapDatabaseRowToWishRow(result.rows[0]));
   }
 
   async findBySessionId(sessionId: SessionId): Promise<Wish | null> {
@@ -93,7 +106,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       return null;
     }
 
-    const row = result.rows[0] as WishRow;
+    const row = this.mapDatabaseRowToWishRow(result.rows[0]);
     return await this.mapRowToWish(row);
   }
 
@@ -104,7 +117,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       offset
     });
 
-    return Promise.all(result.rows.map(async (row: WishRow) => await this.mapRowToWish(row)));
+    return Promise.all(result.rows.map(async (row) => await this.mapRowToWish(this.mapDatabaseRowToWishRow(row))));
   }
 
   async findLatestWithSupportStatus(
@@ -113,130 +126,167 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     sessionId?: SessionId,
     userId?: UserId
   ): Promise<Wish[]> {
-    // Get latest wishes
+    const wishRows = await this.fetchLatestWishRows(limit, offset);
+    return this.mapRowsToWishesWithSupportStatus(wishRows, sessionId, userId);
+  }
+
+  private async fetchLatestWishRows(limit: number, offset: number): Promise<WishRow[]> {
     const result = await this.queryExecutor.select('wishes', {
       orderBy: [{ column: 'created_at', direction: 'DESC' }],
       limit,
       offset
     });
+    return result.rows.map(row => this.mapDatabaseRowToWishRow(row));
+  }
 
-    // Map each wish with support status
-    const wishesWithStatus = await Promise.all(
-      result.rows.map(async (row: WishRow) => {
-        const wish = await this.mapRowToWish(row);
-        
-        // Check if current user/session has supported this wish
-        const isSupported = await this.hasSupported(
-          WishId.fromString(wish.id), 
-          sessionId, 
-          userId
-        );
-        
-        // Create a new wish object with support status
-        return Wish.fromRepository({
-          id: WishId.fromString(wish.id),
-          content: WishContent.fromString(wish.wish),
-          authorId: wish.authorId,
-          name: wish.name,
-          supportCount: SupportCount.fromNumber(wish.supportCount),
-          supporters: new Set(wish.supporters),
-          createdAt: wish.createdAt,
-          updatedAt: wish.updatedAt,
-          isSupported: isSupported
-        });
-      })
+  private async mapRowsToWishesWithSupportStatus(
+    rows: WishRow[],
+    sessionId?: SessionId,
+    userId?: UserId
+  ): Promise<Wish[]> {
+    return Promise.all(
+      rows.map(row => this.mapRowToWishWithSupportStatus(row, sessionId, userId))
+    );
+  }
+
+  private async mapRowToWishWithSupportStatus(
+    row: WishRow,
+    sessionId?: SessionId,
+    userId?: UserId
+  ): Promise<Wish> {
+    const wish = await this.mapRowToWish(row);
+    const isSupported = await this.hasSupported(
+      WishId.fromString(wish.id),
+      sessionId,
+      userId
     );
 
-    return wishesWithStatus;
+    return Wish.fromRepository({
+      id: WishId.fromString(wish.id),
+      content: WishContent.fromString(wish.wish),
+      authorId: wish.authorId,
+      name: wish.name,
+      supportCount: SupportCount.fromNumber(wish.supportCount),
+      supporters: new Set(wish.supporters),
+      createdAt: wish.createdAt,
+      updatedAt: wish.updatedAt,
+      isSupported: isSupported
+    });
   }
 
   async addSupport(wishId: WishId, sessionId?: SessionId, userId?: UserId): Promise<void> {
-    Logger.debug('[REPO] Adding support', {
-      wishId: wishId.value,
-      sessionId: sessionId?.value,
-      userId: userId?.value
-    });
+    this.logSupportOperation('Adding support', wishId, sessionId, userId);
 
-    // First check if already supported
-    const alreadySupported = await this.hasSupported(wishId, sessionId, userId);
-    if (alreadySupported) {
-      Logger.warn('[REPO] Support already exists, skipping', { wishId: wishId.value });
-      return; // Already supported, do nothing
-    }
-
-    try {
-      const result = await this.queryExecutor.insert('supports', {
-        wish_id: wishId.value,
-        session_id: userId ? null : (sessionId?.value ?? null), // ログインユーザーの場合はsession_idをnullに
-        user_id: userId?.value ?? null,
-        created_at: new Date().toISOString()
-      });
-
-      Logger.debug('[REPO] Support inserted', { 
-        wishId: wishId.value,
-        rowsAffected: result.rowCount 
-      });
-
-      // Update support count
-      const updateResult = await this.queryExecutor.updateSupportCount(wishId.value);
-
-      Logger.debug('[REPO] Support count updated', { 
-        wishId: wishId.value,
-        rowsUpdated: updateResult.rowCount 
-      });
-    } catch (error) {
-      Logger.error(`[REPO] Error adding support for wish ${wishId.value}`, error as Error);
-      
-      // If duplicate key error, ignore it (already supported)
-      if (error instanceof Error && error.message.includes('duplicate key')) {
-        Logger.debug('[REPO] Duplicate key error ignored', { wishId: wishId.value });
-        return;
-      }
-      throw error;
-    }
-  }
-
-  async removeSupport(wishId: WishId, sessionId?: SessionId, userId?: UserId): Promise<void> {
-    Logger.debug('[REPO] Removing support', {
-      wishId: wishId.value,
-      sessionId: sessionId?.value,
-      userId: userId?.value
-    });
-
-    let query: string;
-    let params: any[];
-
-    let result;
-    if (userId) {
-      // Remove by user ID (for logged-in users)
-      result = await this.queryExecutor.delete('supports', {
-        wish_id: wishId.value,
-        user_id: userId.value
-      });
-    } else if (sessionId) {
-      // Remove by session ID (for anonymous users)
-      result = await this.queryExecutor.delete('supports', {
-        wish_id: wishId.value,
-        session_id: sessionId.value
-      });
-    } else {
-      Logger.warn('[REPO] removeSupport called without userId or sessionId', { wishId: wishId.value });
+    if (await this.isAlreadySupported(wishId, sessionId, userId)) {
       return;
     }
 
-    Logger.debug('[REPO] Support removed', { 
+    try {
+      await this.insertSupportRecord(wishId, sessionId, userId);
+      await this.updateSupportCount(wishId);
+    } catch (error) {
+      this.handleSupportError(error, wishId, 'adding');
+    }
+  }
+
+  private logSupportOperation(
+    operation: string,
+    wishId: WishId,
+    sessionId?: SessionId,
+    userId?: UserId
+  ): void {
+    Logger.debug(`[REPO] ${operation}`, {
+      wishId: wishId.value,
+      sessionId: sessionId?.value,
+      userId: userId?.value
+    });
+  }
+
+  private async isAlreadySupported(
+    wishId: WishId,
+    sessionId?: SessionId,
+    userId?: UserId
+  ): Promise<boolean> {
+    const alreadySupported = await this.hasSupported(wishId, sessionId, userId);
+    if (alreadySupported) {
+      Logger.warn('[REPO] Support already exists, skipping', { wishId: wishId.value });
+      return true;
+    }
+    return false;
+  }
+
+  private async insertSupportRecord(
+    wishId: WishId,
+    sessionId?: SessionId,
+    userId?: UserId
+  ): Promise<void> {
+    const result = await this.queryExecutor.insert('supports', {
+      wish_id: wishId.value,
+      session_id: userId ? null : (sessionId?.value ?? null),
+      user_id: userId?.value ?? null,
+      created_at: new Date().toISOString()
+    });
+
+    Logger.debug('[REPO] Support inserted', {
+      wishId: wishId.value,
+      rowsAffected: result.rowCount
+    });
+  }
+
+  private async updateSupportCount(wishId: WishId): Promise<void> {
+    const updateResult = await this.queryExecutor.updateSupportCount(wishId.value);
+    Logger.debug('[REPO] Support count updated', {
+      wishId: wishId.value,
+      rowsUpdated: updateResult.rowCount
+    });
+  }
+
+  private handleSupportError(error: unknown, wishId: WishId, operation: string): void {
+    Logger.error(`[REPO] Error ${operation} support for wish ${wishId.value}`, error as Error);
+    
+    if (error instanceof Error && error.message.includes('duplicate key')) {
+      Logger.debug('[REPO] Duplicate key error ignored', { wishId: wishId.value });
+      return;
+    }
+    throw error;
+  }
+
+  async removeSupport(wishId: WishId, sessionId?: SessionId, userId?: UserId): Promise<void> {
+    this.logSupportOperation('Removing support', wishId, sessionId, userId);
+
+    const result = await this.deleteSupportRecord(wishId, sessionId, userId);
+    if (result) {
+      await this.updateSupportCount(wishId);
+    }
+  }
+
+  private async deleteSupportRecord(
+    wishId: WishId,
+    sessionId?: SessionId,
+    userId?: UserId
+  ): Promise<boolean> {
+    if (!userId && !sessionId) {
+      Logger.warn('[REPO] removeSupport called without userId or sessionId', { wishId: wishId.value });
+      return false;
+    }
+
+    const result = userId
+      ? await this.queryExecutor.delete('supports', {
+          wish_id: wishId.value,
+          user_id: userId.value
+        })
+      : await this.queryExecutor.delete('supports', {
+          wish_id: wishId.value,
+          session_id: sessionId!.value
+        });
+
+    Logger.debug('[REPO] Support removed', {
       wishId: wishId.value,
       rowsDeleted: result.rowCount,
       queryType: userId ? 'user' : 'session'
     });
 
-    // Update support count
-    const updateResult = await this.queryExecutor.updateSupportCount(wishId.value);
-
-    Logger.debug('[REPO] Support count updated after removal', { 
-      wishId: wishId.value,
-      rowsUpdated: updateResult.rowCount 
-    });
+    return (result.rowCount ?? 0) > 0;
   }
 
   async hasSupported(wishId: WishId, sessionId?: SessionId, userId?: UserId): Promise<boolean> {
@@ -296,7 +346,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
         limit: 1
       });
       const sessionId = sessionResult.rows.length > 0 
-        ? sessionResult.rows[0].session_id 
+        ? sessionResult.rows[0].session_id as string
         : `session_${row.id}`;
       authorId = SessionId.fromString(sessionId);
     }

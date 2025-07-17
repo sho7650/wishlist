@@ -1,4 +1,4 @@
-import { DatabaseConnection, DatabaseResult } from "../DatabaseConnection";
+import { DatabaseConnection, DatabaseResult, DatabaseValue } from "../DatabaseConnection";
 import { QueryExecutor, SelectOptions, JoinQueryConfig } from "./QueryExecutor";
 import { QueryPlaceholderStrategy } from "./QueryPlaceholderStrategy";
 import { Logger } from "../../../utils/Logger";
@@ -83,7 +83,7 @@ export abstract class BaseQueryExecutor implements QueryExecutor {
   async select(table: string, options: SelectOptions = {}): Promise<DatabaseResult> {
     const columns = options.columns ? options.columns.join(', ') : '*';
     let query = `SELECT ${columns} FROM ${table}`;
-    const params: any[] = [];
+    const params: DatabaseValue[] = [];
     let paramIndex = 1;
 
     // WHERE clause
@@ -206,7 +206,7 @@ export abstract class BaseQueryExecutor implements QueryExecutor {
       query += ` ${join.type} JOIN ${join.table} ON ${join.on}`;
     }
     
-    const params: any[] = [];
+    const params: DatabaseValue[] = [];
     let paramIndex = 1;
 
     // WHERE clause
@@ -299,7 +299,7 @@ export abstract class BaseQueryExecutor implements QueryExecutor {
    */
   abstract updateSupportCount(wishId: string): Promise<DatabaseResult>;
 
-  async raw(query: string, params: any[]): Promise<DatabaseResult> {
+  async raw(query: string, params: DatabaseValue[]): Promise<DatabaseResult> {
     Logger.debug(`[${this.placeholderStrategy.getDialectName()}] Executing raw query`, {
       queryLength: query.length,
       paramCount: params.length

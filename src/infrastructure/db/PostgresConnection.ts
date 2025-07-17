@@ -1,5 +1,5 @@
 import { Pool, PoolClient, QueryResult } from "pg";
-import { DatabaseConnection, DatabaseResult } from "./DatabaseConnection";
+import { DatabaseConnection, DatabaseResult, DatabaseValue } from "./DatabaseConnection";
 import { parse as parseDbUrl } from "pg-connection-string";
 import { Logger } from "../../utils/Logger";
 import { DatabaseSchemaBuilder } from "./DatabaseSchemaBuilder";
@@ -43,7 +43,7 @@ export class PostgresConnection implements DatabaseConnection {
     return this.pool.connect();
   }
 
-  async query(text: string, params: any[]): Promise<DatabaseResult> {
+  async query(text: string, params: DatabaseValue[]): Promise<DatabaseResult> {
     const client = await this.getClient();
     try {
       const result: QueryResult = await client.query(text, params);

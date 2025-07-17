@@ -28,7 +28,7 @@ export class Logger {
     return level <= this.currentLogLevel;
   }
 
-  static log(message: string, ...args: any[]): void {
+  static log(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.INFO)) {
       console.log(message, ...args);
     }
@@ -40,19 +40,19 @@ export class Logger {
     }
   }
 
-  static warn(message: string, ...args: any[]): void {
+  static warn(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.WARN)) {
       console.warn(message, ...args);
     }
   }
 
-  static info(message: string, ...args: any[]): void {
+  static info(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.INFO)) {
       console.info(message, ...args);
     }
   }
 
-  static debug(message: string, ...args: any[]): void {
+  static debug(message: string, ...args: unknown[]): void {
     if (this.shouldLog(LogLevel.DEBUG)) {
       console.debug(message, ...args);
     }

@@ -1,4 +1,5 @@
 import { SupportWishResponse } from "./WishService";
+import { Wish } from "../../domain/entities/Wish";
 
 export interface SupportWishRequest {
   wishId: string;
@@ -13,7 +14,7 @@ export interface UnsupportWishResponse {
 
 export interface WishSupportStatusResponse {
   isSupported: boolean;
-  wish: any;
+  wish: Wish | null;
 }
 
 export interface SupportService {

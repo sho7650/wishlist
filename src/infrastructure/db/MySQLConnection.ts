@@ -1,4 +1,4 @@
-import { DatabaseConnection, DatabaseResult } from "./DatabaseConnection";
+import { DatabaseConnection, DatabaseResult, DatabaseValue } from "./DatabaseConnection";
 import { Logger } from "../../utils/Logger";
 import { DatabaseSchemaBuilder } from "./DatabaseSchemaBuilder";
 
@@ -20,7 +20,7 @@ export class MySQLConnection implements DatabaseConnection {
     // });
   }
 
-  async query(text: string, params: any[]): Promise<DatabaseResult> {
+  async query(text: string, params: DatabaseValue[]): Promise<DatabaseResult> {
     // Mock implementation for testing purposes
     Logger.debug(`[MySQL] Executing query: ${text.substring(0, 100)}...`);
     Logger.debug(`[MySQL] Parameters:`, params);

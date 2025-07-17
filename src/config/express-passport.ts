@@ -7,7 +7,7 @@ export function configureExpressPassport(db: DatabaseConnection) {
   const baseConfig = new BasePassportConfig(db);
 
   // Use common serialization logic
-  passport.serializeUser((user: any, done) => {
+  passport.serializeUser((user: any, done) => { // External library callback - any is acceptable here
     baseConfig.serializeUser(user, done);
   });
 
