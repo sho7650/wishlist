@@ -42,6 +42,6 @@ export class DatabaseSessionService implements SessionService {
       return null;
     }
 
-    return result.rows[0].wish_id;
+    return result.rows[0].wish_id as string;
   }
 }

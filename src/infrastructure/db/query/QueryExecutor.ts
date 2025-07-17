@@ -1,14 +1,14 @@
-import { DatabaseResult } from "../DatabaseConnection";
+import { DatabaseResult, DatabaseValue } from "../DatabaseConnection";
 
 export interface QueryExecutor {
   // Basic CRUD operations
-  insert(table: string, data: Record<string, any>): Promise<DatabaseResult>;
+  insert(table: string, data: Record<string, DatabaseValue>): Promise<DatabaseResult>;
   select(table: string, options?: SelectOptions): Promise<DatabaseResult>;
-  update(table: string, data: Record<string, any>, conditions: Record<string, any>): Promise<DatabaseResult>;
-  delete(table: string, conditions: Record<string, any>): Promise<DatabaseResult>;
+  update(table: string, data: Record<string, DatabaseValue>, conditions: Record<string, DatabaseValue>): Promise<DatabaseResult>;
+  delete(table: string, conditions: Record<string, DatabaseValue>): Promise<DatabaseResult>;
   
   // Advanced operations
-  upsert(table: string, data: Record<string, any>, conflictColumns: string[]): Promise<DatabaseResult>;
+  upsert(table: string, data: Record<string, DatabaseValue>, conflictColumns: string[]): Promise<DatabaseResult>;
   selectWithJoin(config: JoinQueryConfig): Promise<DatabaseResult>;
   
   // Support count operations (specific to this domain)
@@ -17,11 +17,11 @@ export interface QueryExecutor {
   updateSupportCount(wishId: string): Promise<DatabaseResult>;
   
   // Raw query for complex cases
-  raw(query: string, params: any[]): Promise<DatabaseResult>;
+  raw(query: string, params: DatabaseValue[]): Promise<DatabaseResult>;
 }
 
 export interface SelectOptions {
-  where?: Record<string, any>;
+  where?: Record<string, DatabaseValue>;
   orderBy?: Array<{ column: string; direction: 'ASC' | 'DESC' }>;
   limit?: number;
   offset?: number;
@@ -36,10 +36,10 @@ export interface JoinQueryConfig {
     type: 'LEFT' | 'INNER' | 'RIGHT';
   }>;
   select: string[];
-  where?: Record<string, any>;
+  where?: Record<string, DatabaseValue>;
   orderBy?: Array<{ column: string; direction: 'ASC' | 'DESC' }>;
   limit?: number;
   offset?: number;
   groupBy?: string[];
-  having?: Record<string, any>;
+  having?: Record<string, DatabaseValue>;
 }

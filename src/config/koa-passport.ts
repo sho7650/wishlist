@@ -7,7 +7,7 @@ export function configureKoaPassport(db: DatabaseConnection) {
   const baseConfig = new BasePassportConfig(db);
 
   // Use common serialization logic
-  koaPassport.serializeUser((user: any, done) => {
+  koaPassport.serializeUser((user: any, done) => { // External library callback - any is acceptable here
     baseConfig.serializeUser(user, done);
   });
 

@@ -6,6 +6,7 @@ import { KoaServerBuilder } from "./KoaServerBuilder";
 import { WishRepository } from "../../ports/output/WishRepository";
 import { SessionService } from "../../ports/output/SessionService";
 import { QueryExecutor } from "../db/query/QueryExecutor";
+import { DatabaseConnection } from "../db/DatabaseConnection";
 
 export class WebServerFactory {
   private static strategies: { [key: string]: ServerBuilderStrategy } = {
@@ -14,7 +15,7 @@ export class WebServerFactory {
   };
 
   static createServer(
-    dbConnection: any, // ここは実際のDB接続型に置き換える
+    dbConnection: DatabaseConnection,
     wishRepository: WishRepository,
     sessionService: SessionService,
     queryExecutor?: QueryExecutor

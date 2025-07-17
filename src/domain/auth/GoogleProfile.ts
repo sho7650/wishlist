@@ -12,7 +12,7 @@ export interface GoogleProfile {
 /**
  * Type guard to check if an object is a valid GoogleProfile
  */
-export function isGoogleProfile(obj: any): obj is GoogleProfile {
+export function isGoogleProfile(obj: any): obj is GoogleProfile { // Type guard - any is appropriate here
   return (
     obj !== null &&
     obj !== undefined &&

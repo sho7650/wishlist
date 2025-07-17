@@ -2,6 +2,7 @@ import { WishRepository } from "../../ports/output/WishRepository";
 import { WishId } from "../../domain/value-objects/WishId";
 import { SessionId } from "../../domain/value-objects/SessionId";
 import { UserId } from "../../domain/value-objects/UserId";
+import { Wish } from "../../domain/entities/Wish";
 
 export class GetWishSupportStatusUseCase {
   constructor(private wishRepository: WishRepository) {}
@@ -10,7 +11,7 @@ export class GetWishSupportStatusUseCase {
     wishId: string,
     sessionId?: string,
     userId?: number
-  ): Promise<{ isSupported: boolean; wish: any }> {
+  ): Promise<{ isSupported: boolean; wish: Wish | null }> {
     const wishIdObj = WishId.fromString(wishId);
     const sessionIdObj = sessionId ? SessionId.fromString(sessionId) : undefined;
     const userIdObj = userId ? UserId.fromNumber(userId) : undefined;
