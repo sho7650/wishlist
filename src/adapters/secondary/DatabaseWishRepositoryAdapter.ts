@@ -7,9 +7,9 @@ import { SupportCount } from "../../domain/value-objects/SupportCount";
 import { WishRepository } from "../../ports/output/WishRepository";
 import { QueryExecutor } from "../../infrastructure/db/query/QueryExecutor";
 import { Logger } from "../../utils/Logger";
-import { DatabaseRow } from "../../infrastructure/db/DatabaseConnection";
+// import { DatabaseRow } from "../../infrastructure/db/DatabaseConnection";
 
-interface WishRow extends DatabaseRow {
+interface WishRow {
   id: string;
   name: string | null;
   wish: string;
@@ -70,7 +70,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     return await this.mapRowToWish(row);
   }
 
-  private mapDatabaseRowToWishRow(row: DatabaseRow): WishRow {
+  private mapDatabaseRowToWishRow(row: any): WishRow {
     return {
       id: row.id as string,
       name: row.name as string | null,
@@ -141,7 +141,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     const viewerUserId = userId?.value;
 
     const mainQuery = `
-      SELECT 
+      SELECT DISTINCT
         w.id, 
         w.name, 
         w.wish, 
@@ -159,9 +159,14 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
           ($2::integer IS NOT NULL AND vs.user_id = $2)
         )
       )
-      ORDER BY w.created_at DESC
+      ORDER BY w.created_at DESC, w.id
       LIMIT $3 OFFSET $4
     `;
+
+    Logger.debug('[REPO] Executing optimized main query', {
+      query: mainQuery.replace(/\s+/g, ' ').trim(),
+      params: [viewerSessionId || null, viewerUserId || null, limit, offset]
+    });
 
     const mainResult = await this.queryExecutor.raw(mainQuery, [
       viewerSessionId || null,
@@ -169,6 +174,12 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       limit,
       offset
     ]);
+
+    Logger.debug('[REPO] Main query results', {
+      rowCount: mainResult.rows.length,
+      wishIds: mainResult.rows.map((row: any) => row.id),
+      duplicateCheck: this.checkForDuplicates(mainResult.rows.map((row: any) => row.id))
+    });
 
     if (mainResult.rows.length === 0) {
       return [];
@@ -187,6 +198,11 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
 
     const sessionResult = await this.queryExecutor.raw(sessionQuery, wishIds);
 
+    Logger.debug('[REPO] Session query results', {
+      rowCount: sessionResult.rows.length,
+      sessions: sessionResult.rows
+    });
+
     // Batch query for all supporters
     const supportersQuery = `
       SELECT wish_id, session_id, user_id 
@@ -196,12 +212,26 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
 
     const supportersResult = await this.queryExecutor.raw(supportersQuery, wishIds);
 
+    Logger.debug('[REPO] Supporters query results', {
+      rowCount: supportersResult.rows.length,
+      supportersByWish: this.groupSupportersByWish(supportersResult.rows)
+    });
+
     // Map results to Wish objects
-    return this.mapOptimizedResultsToWishes(
+    const mappedWishes = this.mapOptimizedResultsToWishes(
       mainResult.rows,
       sessionResult.rows,
       supportersResult.rows
     );
+
+    Logger.debug('[REPO] Final mapped wishes', {
+      requestedLimit: limit,
+      actualCount: mappedWishes.length,
+      wishIds: mappedWishes.map(w => w.id),
+      duplicateCheck: this.checkForDuplicates(mappedWishes.map(w => w.id))
+    });
+
+    return mappedWishes;
   }
 
   private mapOptimizedResultsToWishes(
@@ -209,6 +239,14 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     sessionRows: any[],
     supporterRows: any[]
   ): Wish[] {
+    // 重複除去: wish IDを基準に最初の行のみを保持
+    const uniqueMainRows = this.deduplicateMainRows(mainRows);
+    
+    Logger.debug('[REPO] Main rows deduplication', {
+      originalCount: mainRows.length,
+      uniqueCount: uniqueMainRows.length,
+      removedDuplicates: mainRows.length - uniqueMainRows.length
+    });
     const sessionMap = new Map<string, string>();
     sessionRows.forEach((row: any) => {
       sessionMap.set(row.wish_id, row.session_id);
@@ -229,7 +267,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       }
     });
 
-    return mainRows.map((row: any) => {
+    return uniqueMainRows.map((row: any) => {
       let authorId: UserId | SessionId;
       
       if (row.user_id) {
@@ -254,24 +292,6 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     });
   }
 
-  private async fetchLatestWishRows(limit: number, offset: number): Promise<WishRow[]> {
-    const result = await this.queryExecutor.select('wishes', {
-      orderBy: [{ column: 'created_at', direction: 'DESC' }],
-      limit,
-      offset
-    });
-    return result.rows.map(row => this.mapDatabaseRowToWishRow(row));
-  }
-
-  private async mapRowsToWishesWithSupportStatus(
-    rows: WishRow[],
-    sessionId?: SessionId,
-    userId?: UserId
-  ): Promise<Wish[]> {
-    return Promise.all(
-      rows.map(row => this.mapRowToWishWithSupportStatus(row, sessionId, userId))
-    );
-  }
 
   private async mapRowToWishWithSupportStatus(
     row: WishRow,
@@ -510,5 +530,57 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       return new Date(dateValue);
     }
     return new Date();
+  }
+
+  private checkForDuplicates(ids: string[]): { hasDuplicates: boolean; duplicates: string[] } {
+    const seen = new Set<string>();
+    const duplicates: string[] = [];
+    
+    for (const id of ids) {
+      if (seen.has(id)) {
+        duplicates.push(id);
+      } else {
+        seen.add(id);
+      }
+    }
+    
+    return {
+      hasDuplicates: duplicates.length > 0,
+      duplicates
+    };
+  }
+
+  private groupSupportersByWish(supporterRows: any[]): Record<string, any[]> {
+    const groups: Record<string, any[]> = {};
+    supporterRows.forEach((row) => {
+      if (!groups[row.wish_id]) {
+        groups[row.wish_id] = [];
+      }
+      groups[row.wish_id].push(row);
+    });
+    return groups;
+  }
+
+  private deduplicateMainRows(mainRows: any[]): any[] {
+    const seen = new Set<string>();
+    const uniqueRows: any[] = [];
+    
+    for (const row of mainRows) {
+      if (!seen.has(row.id)) {
+        seen.add(row.id);
+        uniqueRows.push(row);
+      } else {
+        Logger.warn('[REPO] Duplicate wish ID detected and removed', {
+          wishId: row.id,
+          duplicateData: {
+            name: row.name,
+            support_count: row.support_count,
+            is_supported_by_viewer: row.is_supported_by_viewer
+          }
+        });
+      }
+    }
+    
+    return uniqueRows;
   }
 }

@@ -1,4 +1,4 @@
-enum LogLevel {
+export enum LogLevel {
   ERROR = 0,
   WARN = 1,
   INFO = 2,
@@ -6,7 +6,21 @@ enum LogLevel {
 }
 
 export class Logger {
+  private static testLogLevel?: LogLevel;
+
+  // Test用のログレベル設定機能
+  static setLevel(level: LogLevel): void {
+    this.testLogLevel = level;
+  }
+
+  static resetLevel(): void {
+    this.testLogLevel = undefined;
+  }
+
   private static get currentLogLevel(): LogLevel {
+    if (this.testLogLevel !== undefined) {
+      return this.testLogLevel;
+    }
     const logLevel = process.env.LOG_LEVEL?.toLowerCase();
     
     switch (logLevel) {

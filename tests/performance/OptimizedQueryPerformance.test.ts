@@ -25,7 +25,7 @@ describe("DatabaseWishRepositoryAdapter - Performance Optimization", () => {
       incrementSupportCount: jest.fn(),
       decrementSupportCount: jest.fn(),
       updateSupportCount: jest.fn(),
-      raw: jest.fn().mockImplementation((...args) => {
+      raw: jest.fn().mockImplementation(() => {
         queryCallCount++;
         return Promise.resolve({ rows: [] });
       }),
@@ -71,7 +71,7 @@ describe("DatabaseWishRepositoryAdapter - Performance Optimization", () => {
       jest.clearAllMocks();
       queryCallCount = 0;
       
-      mockQueryExecutor.raw = jest.fn().mockImplementation((...args) => {
+      mockQueryExecutor.raw = jest.fn().mockImplementation(() => {
         queryCallCount++;
         // Return different results based on call count
         if (queryCallCount === 1) return Promise.resolve({ rows: mockMainResult });
@@ -119,7 +119,7 @@ describe("DatabaseWishRepositoryAdapter - Performance Optimization", () => {
       jest.clearAllMocks();
       queryCallCount = 0;
       
-      mockQueryExecutor.raw = jest.fn().mockImplementation((...args) => {
+      mockQueryExecutor.raw = jest.fn().mockImplementation(() => {
         queryCallCount++;
         if (queryCallCount === 1) return Promise.resolve({ rows: mockMainResult });
         if (queryCallCount === 2) return Promise.resolve({ rows: mockSessionResult });
@@ -160,7 +160,7 @@ describe("DatabaseWishRepositoryAdapter - Performance Optimization", () => {
       jest.clearAllMocks();
       queryCallCount = 0;
       
-      mockQueryExecutor.raw = jest.fn().mockImplementation((...args) => {
+      mockQueryExecutor.raw = jest.fn().mockImplementation(() => {
         queryCallCount++;
         return Promise.resolve({ rows: [] }); // Empty result should stop after first query
       });
@@ -248,7 +248,7 @@ describe("DatabaseWishRepositoryAdapter - Performance Optimization", () => {
       jest.clearAllMocks();
       queryCallCount = 0;
       
-      mockQueryExecutor.raw = jest.fn().mockImplementation((...args) => {
+      mockQueryExecutor.raw = jest.fn().mockImplementation(() => {
         queryCallCount++;
         if (queryCallCount === 1) return Promise.resolve({ rows: malformedResult });
         return Promise.resolve({ rows: [] });
