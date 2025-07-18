@@ -126,8 +126,132 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     sessionId?: SessionId,
     userId?: UserId
   ): Promise<Wish[]> {
-    const wishRows = await this.fetchLatestWishRows(limit, offset);
-    return this.mapRowsToWishesWithSupportStatus(wishRows, sessionId, userId);
+    // Use optimized batch loading for better performance
+    return this.findLatestWithSupportStatusOptimized(limit, offset, sessionId, userId);
+  }
+
+  private async findLatestWithSupportStatusOptimized(
+    limit: number,
+    offset: number = 0,
+    sessionId?: SessionId,
+    userId?: UserId
+  ): Promise<Wish[]> {
+    // Main query with LEFT JOIN to get support status in single query
+    const viewerSessionId = sessionId?.value;
+    const viewerUserId = userId?.value;
+
+    const mainQuery = `
+      SELECT 
+        w.id, 
+        w.name, 
+        w.wish, 
+        w.created_at, 
+        w.user_id, 
+        w.support_count,
+        CASE 
+          WHEN vs.wish_id IS NOT NULL THEN true 
+          ELSE false 
+        END as is_supported_by_viewer
+      FROM wishes w
+      LEFT JOIN supports vs ON (
+        w.id = vs.wish_id AND (
+          ($1::text IS NOT NULL AND vs.session_id = $1) OR 
+          ($2::integer IS NOT NULL AND vs.user_id = $2)
+        )
+      )
+      ORDER BY w.created_at DESC
+      LIMIT $3 OFFSET $4
+    `;
+
+    const mainResult = await this.queryExecutor.raw(mainQuery, [
+      viewerSessionId || null,
+      viewerUserId || null,
+      limit,
+      offset
+    ]);
+
+    if (mainResult.rows.length === 0) {
+      return [];
+    }
+
+    const wishIds = mainResult.rows.map((row: any) => row.id);
+
+    // Batch query for sessions (for anonymous wishes)
+    // Convert array to PostgreSQL array format or use IN clause
+    const wishIdPlaceholders = wishIds.map((_, index) => `$${index + 1}`).join(', ');
+    const sessionQuery = `
+      SELECT wish_id, session_id 
+      FROM sessions 
+      WHERE wish_id IN (${wishIdPlaceholders})
+    `;
+
+    const sessionResult = await this.queryExecutor.raw(sessionQuery, wishIds);
+
+    // Batch query for all supporters
+    const supportersQuery = `
+      SELECT wish_id, session_id, user_id 
+      FROM supports 
+      WHERE wish_id IN (${wishIdPlaceholders})
+    `;
+
+    const supportersResult = await this.queryExecutor.raw(supportersQuery, wishIds);
+
+    // Map results to Wish objects
+    return this.mapOptimizedResultsToWishes(
+      mainResult.rows,
+      sessionResult.rows,
+      supportersResult.rows
+    );
+  }
+
+  private mapOptimizedResultsToWishes(
+    mainRows: any[],
+    sessionRows: any[],
+    supporterRows: any[]
+  ): Wish[] {
+    const sessionMap = new Map<string, string>();
+    sessionRows.forEach((row: any) => {
+      sessionMap.set(row.wish_id, row.session_id);
+    });
+
+    const supportersMap = new Map<string, Set<string>>();
+    supporterRows.forEach((row: any) => {
+      const wishId = row.wish_id;
+      if (!supportersMap.has(wishId)) {
+        supportersMap.set(wishId, new Set());
+      }
+      
+      const supporters = supportersMap.get(wishId)!;
+      if (row.user_id) {
+        supporters.add(`user_${row.user_id}`);
+      } else if (row.session_id) {
+        supporters.add(`session_${row.session_id}`);
+      }
+    });
+
+    return mainRows.map((row: any) => {
+      let authorId: UserId | SessionId;
+      
+      if (row.user_id) {
+        authorId = UserId.fromNumber(row.user_id);
+      } else {
+        const sessionId = sessionMap.get(row.id) || `fallback_${row.id}`;
+        authorId = SessionId.fromString(sessionId);
+      }
+
+      const supporters = supportersMap.get(row.id) || new Set<string>();
+
+      return Wish.fromRepository({
+        id: WishId.fromString(row.id || 'unknown'),
+        content: WishContent.fromString(row.wish || ''),
+        authorId,
+        name: row.name || undefined,
+        supportCount: SupportCount.fromNumber(row.support_count || 0),
+        supporters,
+        createdAt: this.parseDate(row.created_at),
+        isSupported: row.is_supported_by_viewer || false
+      });
+    });
   }
 
   private async fetchLatestWishRows(limit: number, offset: number): Promise<WishRow[]> {

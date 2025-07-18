@@ -413,7 +413,7 @@ describe("DatabaseWishRepositoryAdapter", () => {
   describe("findLatestWithSupportStatus", () => {
     it("should return wishes with support status for authenticated user", async () => {
       const userId = UserId.fromNumber(1);
-      const mockRows = [
+      const mockMainResult = [
         {
           id: "123",
           name: "Test User",
@@ -421,24 +421,33 @@ describe("DatabaseWishRepositoryAdapter", () => {
           created_at: new Date("2025-01-01"),
           user_id: 1,
           support_count: 2,
+          is_supported_by_viewer: true
         }
       ];
+      const mockSessionResult = [{ wish_id: "123", session_id: "session456" }];
+      const mockSupportersResult = [
+        { wish_id: "123", session_id: null, user_id: 1 },
+        { wish_id: "123", session_id: "session789", user_id: null }
+      ];
 
-      // Mock main query, supporters query, and support status (for authenticated users, no session query needed)
-      mockQueryExecutor.select
-        .mockResolvedValueOnce({ rows: mockRows })  // Main wishes query
-        .mockResolvedValueOnce({ rows: [] })        // Supporters query
-        .mockResolvedValueOnce({ rows: [{ id: 1 }] }); // Support status query (has supported)
+      // Mock the three raw queries used in optimized version
+      mockQueryExecutor.raw
+        .mockResolvedValueOnce({ rows: mockMainResult })    // Main JOIN query
+        .mockResolvedValueOnce({ rows: mockSessionResult }) // Sessions batch query
+        .mockResolvedValueOnce({ rows: mockSupportersResult }); // Supporters batch query
 
       const result = await repository.findLatestWithSupportStatus(10, 0, undefined, userId);
 
       expect(result).toHaveLength(1);
       expect(result[0].isSupported).toBe(true);
+      expect(result[0].supporters.size).toBe(2);
+      expect(result[0].supporters.has('user_1')).toBe(true);
+      expect(result[0].supporters.has('session_session789')).toBe(true);
     });
 
     it("should return wishes with support status for session user", async () => {
       const sessionId = SessionId.fromString("session123");
-      const mockRows = [
+      const mockMainResult = [
         {
           id: "123",
           name: null,
@@ -446,20 +455,64 @@ describe("DatabaseWishRepositoryAdapter", () => {
           created_at: new Date("2025-01-01"),
           user_id: null,
           support_count: 1,
+          is_supported_by_viewer: false
         }
       ];
+      const mockSessionResult = [{ wish_id: "123", session_id: "session456" }];
+      const mockSupportersResult = [
+        { wish_id: "123", session_id: "session789", user_id: null }
+      ];
 
-      // Mock main query, session query for mapping, supporters query, and support status
-      mockQueryExecutor.select
-        .mockResolvedValueOnce({ rows: mockRows })  // Main wishes query
-        .mockResolvedValueOnce({ rows: [{ session_id: "session456" }] }) // Sessions query for mapping
-        .mockResolvedValueOnce({ rows: [] })        // Supporters query  
-        .mockResolvedValueOnce({ rows: [] });       // Support status query (not supported)
+      // Mock the three raw queries used in optimized version
+      mockQueryExecutor.raw
+        .mockResolvedValueOnce({ rows: mockMainResult })    // Main JOIN query
+        .mockResolvedValueOnce({ rows: mockSessionResult }) // Sessions batch query
+        .mockResolvedValueOnce({ rows: mockSupportersResult }); // Supporters batch query
 
       const result = await repository.findLatestWithSupportStatus(10, 0, sessionId);
 
       expect(result).toHaveLength(1);
       expect(result[0].isSupported).toBe(false);
+      expect(result[0].supporters.size).toBe(1);
+      expect(result[0].supporters.has('session_session789')).toBe(true);
+    });
+
+    it("should handle empty results from optimized query", async () => {
+      // Mock empty main result
+      mockQueryExecutor.raw
+        .mockResolvedValueOnce({ rows: [] }); // Empty main query
+
+      const result = await repository.findLatestWithSupportStatus(10, 0);
+
+      expect(result).toHaveLength(0);
+      expect(mockQueryExecutor.raw).toHaveBeenCalledTimes(1); // Should not call other queries
+    });
+
+    it("should handle wishes with fallback session IDs", async () => {
+      const mockMainResult = [
+        {
+          id: "123",
+          name: null,
+          wish: "Anonymous wish",
+          created_at: new Date("2025-01-01"),
+          user_id: null,
+          support_count: 0,
+          is_supported_by_viewer: false
+        }
+      ];
+      const mockSessionResult: any[] = []; // No session found, should use fallback
+      const mockSupportersResult: any[] = [];
+
+      mockQueryExecutor.raw
+        .mockResolvedValueOnce({ rows: mockMainResult })
+        .mockResolvedValueOnce({ rows: mockSessionResult })
+        .mockResolvedValueOnce({ rows: mockSupportersResult });
+
+      const result = await repository.findLatestWithSupportStatus(10, 0);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].authorId.value).toBe('fallback_123');
+      expect(result[0].authorId.type).toBe('session');
     });
   });
 
