@@ -126,8 +126,168 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     sessionId?: SessionId,
     userId?: UserId
   ): Promise<Wish[]> {
-    const wishRows = await this.fetchLatestWishRows(limit, offset);
-    return this.mapRowsToWishesWithSupportStatus(wishRows, sessionId, userId);
+    // Use optimized batch loading to eliminate N+1 queries
+    return this.findLatestWithSupportStatusOptimized(limit, offset, sessionId, userId);
+  }
+
+  /**
+   * Optimized version that eliminates N+1 queries using JOIN operations
+   * Reduces query count from ~61 to 3-4 queries for 20 wishes
+   * Performance improvement: ~93% reduction in database queries
+   */
+  private async findLatestWithSupportStatusOptimized(
+    limit: number,
+    offset: number,
+    sessionId?: SessionId,
+    userId?: UserId
+  ): Promise<Wish[]> {
+    const startTime = Date.now();
+    
+    try {
+      // Single JOIN query to get wishes with support counts and viewer support status
+      const mainQuery = `
+        SELECT 
+          w.id,
+          w.name,
+          w.wish,
+          w.user_id,
+          w.created_at,
+          w.support_count,
+          CASE 
+            WHEN vs.wish_id IS NOT NULL THEN 1
+            ELSE 0 
+          END as is_supported_by_viewer
+        FROM wishes w
+        LEFT JOIN supports vs ON (
+          w.id = vs.wish_id 
+          AND (
+            (vs.session_id = ? AND ? IS NOT NULL) OR 
+            (vs.user_id = ? AND ? IS NOT NULL)
+          )
+        )
+        ORDER BY w.created_at DESC
+        LIMIT ? OFFSET ?
+      `;
+
+      const mainResult = await this.queryExecutor.raw(mainQuery, [
+        sessionId?.value || null,
+        sessionId?.value || null,
+        userId?.value || null,
+        userId?.value || null,
+        limit,
+        offset,
+      ]);
+
+      if (!mainResult || !mainResult.rows || mainResult.rows.length === 0) {
+        return [];
+      }
+
+      // Batch query for session IDs for anonymous wishes
+      const wishIds = mainResult.rows.map((row: any) => row.id);
+      const sessionQuery = `
+        SELECT wish_id, session_id
+        FROM sessions
+        WHERE wish_id IN (${wishIds.map(() => '?').join(',')})
+      `;
+      const sessionResult = await this.queryExecutor.raw(sessionQuery, wishIds);
+      
+      // Create session lookup map
+      const sessionMap = new Map<string, string>();
+      for (const row of sessionResult.rows) {
+        const wishId = row.wish_id as string;
+        const sessionId = row.session_id as string;
+        if (wishId && sessionId) {
+          sessionMap.set(wishId, sessionId);
+        }
+      }
+
+      // Batch query for all supporters of these wishes
+      const supportersQuery = `
+        SELECT wish_id, session_id, user_id
+        FROM supports
+        WHERE wish_id IN (${wishIds.map(() => '?').join(',')})
+      `;
+      const supportersResult = await this.queryExecutor.raw(supportersQuery, wishIds);
+      
+      // Group supporters by wish ID
+      const supportersMap = new Map<string, Array<{sessionId?: string, userId?: number}>>();
+      for (const row of supportersResult.rows) {
+        const wishId = row.wish_id as string;
+        if (wishId && !supportersMap.has(wishId)) {
+          supportersMap.set(wishId, []);
+        }
+        if (wishId) {
+          supportersMap.get(wishId)!.push({
+            sessionId: row.session_id as string | undefined,
+            userId: row.user_id as number | undefined
+          });
+        }
+      }
+
+      // Map results to Wish entities in memory (no additional queries)
+      const wishes = mainResult.rows.map((row: any) => this.mapRowToWishOptimized(
+        row,
+        sessionMap.get(row.id),
+        supportersMap.get(row.id) || [],
+        Boolean(row.is_supported_by_viewer)
+      ));
+
+      const duration = Date.now() - startTime;
+      Logger.debug(`[REPO] Optimized findLatestWithSupportStatus completed in ${duration}ms`, {
+        wishCount: wishes.length,
+        queriesExecuted: 3, // Main query + sessions + supporters
+        estimatedOldQueries: wishes.length * 3 + 1, // Original N+1 pattern
+        performanceGain: `${Math.round((1 - 3 / (wishes.length * 3 + 1)) * 100)}%`
+      });
+
+      return wishes;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      Logger.error(`[REPO] Error in optimized findLatestWithSupportStatus after ${duration}ms`, error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Memory-based mapping that doesn't execute additional queries
+   * This replaces the N+1 queries in the original mapRowToWish method
+   */
+  private mapRowToWishOptimized(
+    row: any,
+    sessionId?: string,
+    supporters: Array<{sessionId?: string, userId?: number}> = [],
+    isSupportedByViewer: boolean = false
+  ): Wish {
+    // Determine author ID
+    let authorId: UserId | SessionId;
+    if (row.user_id) {
+      authorId = UserId.fromNumber(row.user_id);
+    } else {
+      // Use sessionId from batch query or generate fallback
+      const effectiveSessionId = sessionId || `session_${row.id}`;
+      authorId = SessionId.fromString(effectiveSessionId);
+    }
+
+    // Build supporters set from batch query results
+    const supportersSet = new Set<string>();
+    supporters.forEach(supporter => {
+      if (supporter.userId) {
+        supportersSet.add(`user_${supporter.userId}`);
+      } else if (supporter.sessionId) {
+        supportersSet.add(`session_${supporter.sessionId}`);
+      }
+    });
+
+    return Wish.fromRepository({
+      id: WishId.fromString(row.id || 'unknown'),
+      content: WishContent.fromString(row.wish || ''),
+      authorId,
+      name: row.name || undefined,
+      supportCount: SupportCount.fromNumber(row.support_count || 0),
+      supporters: supportersSet,
+      createdAt: this.parseDate(row.created_at),
+      isSupported: isSupportedByViewer
+    });
   }
 
   private async fetchLatestWishRows(limit: number, offset: number): Promise<WishRow[]> {
@@ -345,10 +505,14 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
         where: { wish_id: row.id },
         limit: 1
       });
-      const sessionId = sessionResult.rows.length > 0 
+      const sessionIdValue = sessionResult.rows.length > 0 
         ? sessionResult.rows[0].session_id as string
         : `session_${row.id}`;
-      authorId = SessionId.fromString(sessionId);
+      // Ensure sessionId is not empty
+      const validSessionId = sessionIdValue && sessionIdValue.trim() 
+        ? sessionIdValue 
+        : `session_${row.id}`;
+      authorId = SessionId.fromString(validSessionId);
     }
 
     // Get supporters list
@@ -367,8 +531,8 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     });
 
     return Wish.fromRepository({
-      id: WishId.fromString(row.id),
-      content: WishContent.fromString(row.wish),
+      id: WishId.fromString(row.id || 'unknown'),
+      content: WishContent.fromString(row.wish || ''),
       authorId,
       name: row.name || undefined,
       supportCount: SupportCount.fromNumber(row.support_count || 0),

@@ -413,22 +413,28 @@ describe("DatabaseWishRepositoryAdapter", () => {
   describe("findLatestWithSupportStatus", () => {
     it("should return wishes with support status for authenticated user", async () => {
       const userId = UserId.fromNumber(1);
-      const mockRows = [
-        {
-          id: "123",
-          name: "Test User",
-          wish: "Test wish",
-          created_at: new Date("2025-01-01"),
-          user_id: 1,
-          support_count: 2,
-        }
-      ];
+      const mockMainResult = {
+        rows: [
+          {
+            id: "123",
+            name: "Test User",
+            wish: "Test wish",
+            created_at: new Date("2025-01-01"),
+            user_id: 1,
+            support_count: 2,
+            is_supported_by_viewer: 1
+          }
+        ]
+      };
 
-      // Mock main query, supporters query, and support status (for authenticated users, no session query needed)
-      mockQueryExecutor.select
-        .mockResolvedValueOnce({ rows: mockRows })  // Main wishes query
-        .mockResolvedValueOnce({ rows: [] })        // Supporters query
-        .mockResolvedValueOnce({ rows: [{ id: 1 }] }); // Support status query (has supported)
+      const mockSessionResult = { rows: [] }; // No sessions needed for user wishes
+      const mockSupportersResult = { rows: [] }; // No supporters for simplicity
+
+      // Mock the optimized raw queries in order: main, sessions, supporters
+      mockQueryExecutor.raw
+        .mockResolvedValueOnce(mockMainResult)    // Main JOIN query
+        .mockResolvedValueOnce(mockSessionResult) // Sessions batch query
+        .mockResolvedValueOnce(mockSupportersResult); // Supporters batch query
 
       const result = await repository.findLatestWithSupportStatus(10, 0, undefined, userId);
 
@@ -438,23 +444,30 @@ describe("DatabaseWishRepositoryAdapter", () => {
 
     it("should return wishes with support status for session user", async () => {
       const sessionId = SessionId.fromString("session123");
-      const mockRows = [
-        {
-          id: "123",
-          name: null,
-          wish: "Anonymous wish",
-          created_at: new Date("2025-01-01"),
-          user_id: null,
-          support_count: 1,
-        }
-      ];
+      const mockMainResult = {
+        rows: [
+          {
+            id: "123",
+            name: null,
+            wish: "Anonymous wish",
+            created_at: new Date("2025-01-01"),
+            user_id: null,
+            support_count: 1,
+            is_supported_by_viewer: 0
+          }
+        ]
+      };
 
-      // Mock main query, session query for mapping, supporters query, and support status
-      mockQueryExecutor.select
-        .mockResolvedValueOnce({ rows: mockRows })  // Main wishes query
-        .mockResolvedValueOnce({ rows: [{ session_id: "session456" }] }) // Sessions query for mapping
-        .mockResolvedValueOnce({ rows: [] })        // Supporters query  
-        .mockResolvedValueOnce({ rows: [] });       // Support status query (not supported)
+      const mockSessionResult = { 
+        rows: [{ wish_id: "123", session_id: "session456" }] 
+      }; // Session for anonymous wish
+      const mockSupportersResult = { rows: [] }; // No supporters
+
+      // Mock the optimized raw queries in order: main, sessions, supporters
+      mockQueryExecutor.raw
+        .mockResolvedValueOnce(mockMainResult)    // Main JOIN query
+        .mockResolvedValueOnce(mockSessionResult) // Sessions batch query
+        .mockResolvedValueOnce(mockSupportersResult); // Supporters batch query
 
       const result = await repository.findLatestWithSupportStatus(10, 0, sessionId);
 

@@ -1,4 +1,4 @@
-# CLAUDE.md
+ CLAUDE.md
 
 アーキテクチャ原則は @principles/architecture.md に記載しています。
 
