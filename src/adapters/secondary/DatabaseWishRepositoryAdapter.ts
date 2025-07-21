@@ -140,6 +140,37 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     const viewerSessionId = sessionId?.value;
     const viewerUserId = userId?.value;
 
+    // SQLite compatibility: detect parameter syntax
+    const isSQLite = process.env.DB_TYPE?.toLowerCase() === 'sqlite';
+    
+    // Build dynamic join condition based on provided parameters
+    const joinConditions = [];
+    const queryParams = [];
+    let paramIndex = 1;
+    
+    if (viewerSessionId) {
+      const paramPlaceholder = isSQLite ? '?' : `$${paramIndex}`;
+      joinConditions.push(`vs.session_id = ${paramPlaceholder}`);
+      queryParams.push(viewerSessionId);
+      paramIndex++;
+    }
+    
+    if (viewerUserId) {
+      const paramPlaceholder = isSQLite ? '?' : `$${paramIndex}`;
+      joinConditions.push(`vs.user_id = ${paramPlaceholder}`);
+      queryParams.push(viewerUserId);
+      paramIndex++;
+    }
+    
+    // If no viewer params provided, create a condition that never matches
+    const joinCondition = joinConditions.length > 0 
+      ? joinConditions.join(' OR ')
+      : '1 = 0'; // Never matches
+    
+    const limitPlaceholder = isSQLite ? '?' : `$${paramIndex}`;
+    const offsetPlaceholder = isSQLite ? '?' : `$${paramIndex + 1}`;
+    queryParams.push(limit, offset);
+
     const mainQuery = `
       SELECT DISTINCT
         w.id, 
@@ -154,26 +185,19 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
         END as is_supported_by_viewer
       FROM wishes w
       LEFT JOIN supports vs ON (
-        w.id = vs.wish_id AND (
-          ($1::text IS NOT NULL AND vs.session_id = $1) OR 
-          ($2::integer IS NOT NULL AND vs.user_id = $2)
-        )
+        w.id = vs.wish_id AND (${joinCondition})
       )
       ORDER BY w.created_at DESC, w.id
-      LIMIT $3 OFFSET $4
+      LIMIT ${limitPlaceholder} OFFSET ${offsetPlaceholder}
     `;
 
     Logger.debug('[REPO] Executing optimized main query', {
       query: mainQuery.replace(/\s+/g, ' ').trim(),
-      params: [viewerSessionId || null, viewerUserId || null, limit, offset]
+      paramCount: queryParams.length,
+      params: queryParams
     });
 
-    const mainResult = await this.queryExecutor.raw(mainQuery, [
-      viewerSessionId || null,
-      viewerUserId || null,
-      limit,
-      offset
-    ]);
+    const mainResult = await this.queryExecutor.raw(mainQuery, queryParams);
 
     Logger.debug('[REPO] Main query results', {
       rowCount: mainResult.rows.length,
@@ -188,8 +212,11 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     const wishIds = mainResult.rows.map((row: any) => row.id);
 
     // Batch query for sessions (for anonymous wishes)
-    // Convert array to PostgreSQL array format or use IN clause
-    const wishIdPlaceholders = wishIds.map((_, index) => `$${index + 1}`).join(', ');
+    // Create database-agnostic placeholders for IN clause
+    const wishIdPlaceholders = wishIds.map((_, index) => {
+      return isSQLite ? '?' : `$${index + 1}`;
+    }).join(', ');
+    
     const sessionQuery = `
       SELECT wish_id, session_id 
       FROM sessions 
@@ -203,7 +230,7 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       sessions: sessionResult.rows
     });
 
-    // Batch query for all supporters
+    // Batch query for all supporters (reuse same placeholders)
     const supportersQuery = `
       SELECT wish_id, session_id, user_id 
       FROM supports 
