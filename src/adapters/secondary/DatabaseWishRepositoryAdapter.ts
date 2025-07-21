@@ -140,6 +140,17 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
     const viewerSessionId = sessionId?.value;
     const viewerUserId = userId?.value;
 
+    // SQLite compatibility: detect parameter syntax
+    const isSQLite = process.env.DB_TYPE?.toLowerCase() === 'sqlite';
+    const param1 = isSQLite ? '?' : '$1';
+    const param2 = isSQLite ? '?' : '$2';
+    const param3 = isSQLite ? '?' : '$3';
+    const param4 = isSQLite ? '?' : '$4';
+    const param5 = isSQLite ? '?' : '$5';
+    const param6 = isSQLite ? '?' : '$6';
+    const param7 = isSQLite ? '?' : '$7';
+    const param8 = isSQLite ? '?' : '$8';
+
     const mainQuery = `
       SELECT DISTINCT
         w.id, 
@@ -155,24 +166,26 @@ export class DatabaseWishRepositoryAdapter implements WishRepository {
       FROM wishes w
       LEFT JOIN supports vs ON (
         w.id = vs.wish_id AND (
-          ($1::text IS NOT NULL AND vs.session_id = $1) OR 
-          ($2::integer IS NOT NULL AND vs.user_id = $2)
+          (${param1} IS NOT NULL AND vs.session_id = ${param2}) OR 
+          (${param3} IS NOT NULL AND vs.user_id = ${param4})
         )
       )
       ORDER BY w.created_at DESC, w.id
-      LIMIT $3 OFFSET $4
+      LIMIT ${param5} OFFSET ${param6}
     `;
 
     Logger.debug('[REPO] Executing optimized main query', {
       query: mainQuery.replace(/\s+/g, ' ').trim(),
-      params: [viewerSessionId || null, viewerUserId || null, limit, offset]
+      params: [viewerSessionId || null, viewerSessionId || null, viewerUserId || null, viewerUserId || null, limit, offset]
     });
 
     const mainResult = await this.queryExecutor.raw(mainQuery, [
-      viewerSessionId || null,
-      viewerUserId || null,
-      limit,
-      offset
+      viewerSessionId || null,  // param1: for IS NOT NULL check
+      viewerSessionId || null,  // param2: for session_id comparison  
+      viewerUserId || null,     // param3: for IS NOT NULL check
+      viewerUserId || null,     // param4: for user_id comparison
+      limit,                    // param5: LIMIT
+      offset                    // param6: OFFSET
     ]);
 
     Logger.debug('[REPO] Main query results', {

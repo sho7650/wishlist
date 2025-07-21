@@ -151,7 +151,7 @@ describe("Data Duplication Debug Test", () => {
       
       expect(queryLog).toBeDefined();
       expect(queryLog[1].query).toContain('SELECT DISTINCT');
-      expect(queryLog[1].params).toEqual([null, 42, 10, 0]);
+      expect(queryLog[1].params).toEqual([null, null, 42, 42, 10, 0]); // sessionId (2x), userId (2x), limit, offset
 
       // Verify session query logging
       const sessionLog = loggerSpy.mock.calls.find(call => 

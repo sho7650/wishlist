@@ -134,25 +134,27 @@ describe("DatabaseWishRepositoryAdapter - Performance Optimization", () => {
       expect(result).toHaveLength(50);
     });
 
-    it("should verify PostgreSQL-compatible syntax in main query", async () => {
+    it("should verify database-agnostic parameter syntax in main query", async () => {
       const userId = UserId.fromNumber(42);
 
       mockQueryExecutor.raw.mockResolvedValue({ rows: [] });
 
       await repository.findLatestWithSupportStatus(10, 0, undefined, userId);
 
-      // Verify the main query uses PostgreSQL-compatible parameter syntax
+      // Verify the main query uses proper parameter syntax
       const mainQueryCall = mockQueryExecutor.raw.mock.calls[0];
       const query = mainQueryCall[0];
       const params = mainQueryCall[1];
 
-      // Check for PostgreSQL parameter placeholders ($1, $2, etc.)
-      expect(query).toContain('$1::text IS NOT NULL');
-      expect(query).toContain('$2::integer IS NOT NULL');
-      expect(query).toContain('LIMIT $3 OFFSET $4');
+      // Check for database-agnostic parameter handling
+      // Should contain IS NOT NULL checks and parameter placeholders
+      expect(query).toMatch(/IS NOT NULL AND vs\.session_id = /);
+      expect(query).toMatch(/IS NOT NULL AND vs\.user_id = /);
+      expect(query).toMatch(/LIMIT .+ OFFSET /);
 
-      // Verify parameters are passed correctly
-      expect(params).toEqual([null, 42, 10, 0]); // sessionId=null, userId=42, limit=10, offset=0
+      // Verify parameters are passed correctly (now duplicated for IS NOT NULL checks)
+      expect(params).toEqual([null, null, 42, 42, 10, 0]); // sessionId (2x), userId (2x), limit, offset
+      expect(params).toHaveLength(6); // Ensure we have the correct number of parameters
     });
 
     it("should handle empty main query result efficiently", async () => {
