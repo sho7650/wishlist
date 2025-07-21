@@ -147,14 +147,13 @@ describe("DatabaseWishRepositoryAdapter - Performance Optimization", () => {
       const params = mainQueryCall[1];
 
       // Check for database-agnostic parameter handling
-      // Should contain IS NOT NULL checks and parameter placeholders
-      expect(query).toMatch(/IS NOT NULL AND vs\.session_id = /);
-      expect(query).toMatch(/IS NOT NULL AND vs\.user_id = /);
+      // Should contain user_id comparison and LIMIT/OFFSET (sessionId is null so not included)
+      expect(query).toMatch(/vs\.user_id = /);
       expect(query).toMatch(/LIMIT .+ OFFSET /);
 
-      // Verify parameters are passed correctly (now duplicated for IS NOT NULL checks)
-      expect(params).toEqual([null, null, 42, 42, 10, 0]); // sessionId (2x), userId (2x), limit, offset
-      expect(params).toHaveLength(6); // Ensure we have the correct number of parameters
+      // Verify parameters are passed correctly (only userId since sessionId is null)
+      expect(params).toEqual([42, 10, 0]); // userId, limit, offset
+      expect(params).toHaveLength(3); // Ensure we have the correct number of parameters
     });
 
     it("should handle empty main query result efficiently", async () => {
